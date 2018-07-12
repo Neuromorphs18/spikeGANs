@@ -3,12 +3,13 @@
 """
 ImportAedat
 
-Code contributions from Bodo Rueckhauser
+Code contributions from Bodo Rueckauer
 """
 
 from PyAedatTools.ImportAedatHeaders import ImportAedatHeaders
 from PyAedatTools.ImportAedatDataVersion1or2 import ImportAedatDataVersion1or2
 from PyAedatTools.ImportAedatDataVersion3 import ImportAedatDataVersion3
+
 
 def ImportAedat(aedat):
     """
@@ -20,7 +21,7 @@ def ImportAedat(aedat):
     -------
     """
 
-# To handle: missing args; search for file to open - request to user
+    # To handle: missing args; search for file to open - request to user
 
     with open(aedat['importParams']['filePath'], 'rb') as aedat['importParams']['fileHandle']:
         aedat = ImportAedatHeaders(aedat)
@@ -28,4 +29,3 @@ def ImportAedat(aedat):
             return ImportAedatDataVersion1or2(aedat)
         else:
             return ImportAedatDataVersion3(aedat)
- 

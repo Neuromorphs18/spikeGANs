@@ -1,0 +1,46 @@
+[paths]
+dataset_path =
+model_path =
+log_path =
+runlabel = test
+
+[algorithm]
+tau = 1e6
+
+[input]
+dataset_format =
+width = 346
+height = 260
+start_event = 1e6
+end_event = 10e6
+
+[output]
+log_vars = {}
+plot_vars = {}
+verbose = 1
+overwrite = True
+plotproperties = {
+    'font.size': 13,
+    'axes.titlesize': 'xx-large',
+    'axes.labelsize': 'xx-large',
+    'xtick.labelsize': 'xx-large',
+    'xtick.major.size': 7,
+    'xtick.minor.size': 5,
+    'ytick.labelsize': 'xx-large',
+    'ytick.major.size': 7,
+    'ytick.minor.size': 5,
+    'legend.fontsize': 'xx-large',
+    'figure.figsize': (7, 6),
+    'savefig.format': 'png'}
+
+[device]
+gpu = 0
+
+# Use the following section to specify sets of possible values that certain
+# config settings may accept. Will be used in `bin.utils.update_setup` to test
+# validity of config.
+
+[restrictions]
+dataset_formats = {'npz', 'jpg', 'aedat'}
+log_vars = {'all'}
+plot_vars = {'all'}

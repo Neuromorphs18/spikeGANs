@@ -1,0 +1,15 @@
+[paths]
+dataset_path = C:\Users\bodor\Downloads\Tobi
+model_path = C:\Users\bodor\Downloads\Tobi
+log_path = C:\Users\bodor\Downloads\Tobi
+runlabel = test
+
+[algorithm]
+tau = 1e6
+
+[input]
+dataset_format = aedat
+width = 346
+height = 260
+start_event = 1e6
+end_event = 10e6

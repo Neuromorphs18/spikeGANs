@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Bodo Rueckhauser contributed the core of this code
+# Bodo Rueckauer contributed the core of this code
 
 """
 Import aedat version 1 or 2.

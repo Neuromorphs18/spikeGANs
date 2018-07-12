@@ -11,7 +11,7 @@ http://inilabs.com/support/software/fileformat/
 - It would be neater (more readable) to turn the xml cell array into a
     structure.
 
-Code contributions from Bodo Rueckhauser
+Code contributions from Bodo Rueckauer
 
 """
 
