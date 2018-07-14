@@ -46,7 +46,7 @@ class AutoGRU(nn.Module):
         return self.GAN.forward(out)
 
     def compute_loss(self):
-        loss = self.sent_packets / (self.seq_depth * self.batch_size * (self.x + self.y))
+        loss = self.sent_packets / (self.seq_depth * self.batch_size )
         #loss = self.GAN.get_loss_G() + self.sent_packets // (self.seq_depth)
         return loss
 
@@ -82,10 +82,10 @@ def get_batch(index, data, time_d, seq_len=64, batch_size=10):
 
     out = np.zeros([total_size, TOTX + TOTY + 1])
 
-    out[:,xypol[:,0]] = xypol[:,2]
-    out[:,TOTX + xypol[:,1]] = xypol[:,2]
+    r = range(len(data[:, 0]))
+    out[r, data[:, 0]] = data[r, 2]
+    out[r, TOTX + data[:, 1]] = data[r, 2]
     out[:,-1] = time_d
-
     out = torch.Tensor(out.reshape([batch_size, seq_len, TOTX + TOTY + 1]))
 
     # OLD VERSION - massive vector
