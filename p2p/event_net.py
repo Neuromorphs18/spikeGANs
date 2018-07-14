@@ -1,18 +1,13 @@
-import time
-from options.train_options import TrainOptions
-from data import CreateDataLoader
-from models import create_model
-from util.visualizer import Visualizer
+from os.path import join, expanduser
+import numpy as np
 
 import torch
-
-import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import gc
 
-from models.pix2pix_edited import Pix2PixModel
+
+from pretrained_gan import TrainedGAN
  
 class AutoGRU(nn.Module):
     def __init__(self, x, y, seq_depth, p2pmodel, batch_size=10):
@@ -46,7 +41,7 @@ class AutoGRU(nn.Module):
         return self.GAN.forward(out)
 
     def compute_loss(self):
-        loss = self.sent_packets / (self.seq_depth * self.batch_size * (self.x + self.y))
+        loss = self.sent_packets / (self.seq_depth * self.batch_size )
         #loss = self.GAN.get_loss_G() + self.sent_packets // (self.seq_depth)
         return loss
 
@@ -82,10 +77,10 @@ def get_batch(index, data, time_d, seq_len=64, batch_size=10):
 
     out = np.zeros([total_size, TOTX + TOTY + 1])
 
-    out[:,xypol[:,0]] = xypol[:,2]
-    out[:,TOTX + xypol[:,1]] = xypol[:,2]
+    r = range(len(data[:, 0]))
+    out[r, data[:, 0]] = data[r, 2]
+    out[r, TOTX + data[:, 1]] = data[r, 2]
     out[:,-1] = time_d
-
     out = torch.Tensor(out.reshape([batch_size, seq_len, TOTX + TOTY + 1]))
 
     # OLD VERSION - massive vector
@@ -105,19 +100,8 @@ if __name__ == "__main__":
     seq_len = 32
     batch_size=10
 
-    # GRU
-
-    opt = TrainOptions().parse()
-    data_loader = CreateDataLoader(opt)
-    dataset = data_loader.load_data()
-    dataset_size = len(data_loader)
-    print('#training images = %d' % dataset_size)
-
-    model = create_model(opt)
-    #visualizer = Visualizer(opt)
-
-
-    gru = AutoGRU(TOTX, TOTY, seq_len, model, batch_size=batch_size)
+    gan = TrainedGAN("", "tobi_model1")
+    gru = AutoGRU(TOTX, TOTY, seq_len, gan, batch_size=batch_size)
 
 
     """"opt = TrainOptions().parse()
@@ -131,6 +115,7 @@ if __name__ == "__main__":
     visualizer = Visualizer(opt)
     total_steps = 0
     """
+
 
 
     optimi = optim.Adam(gru.parameters())
