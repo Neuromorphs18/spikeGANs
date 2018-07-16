@@ -113,6 +113,7 @@ class BaseModel():
 
     # load models from the disk
     def load_networks(self, which_epoch):
+
         for name in self.model_names:
             if isinstance(name, str):
                 load_filename = '%s_net_%s.pth' % (which_epoch, name)

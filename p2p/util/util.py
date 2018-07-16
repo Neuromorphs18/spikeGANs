@@ -3,6 +3,7 @@ import torch
 import numpy as np
 from PIL import Image
 import os
+import torchvision.transforms as transforms
 
 
 # Converts a Tensor into an image array (numpy)
@@ -58,3 +59,33 @@ def mkdirs(paths):
 def mkdir(path):
     if not os.path.exists(path):
         os.makedirs(path)
+
+
+# MR stolen from another file
+def rgb_to_tensor(img):
+    img = transforms.ToTensor()(img)
+    print("8********", img.size())
+    return tensor_to_rgb(img)
+
+def spikes_to_rgb(img):
+    pass
+
+def tensor_to_rgb(img):
+    tmp = img[0, ...] * 0.299 + img[1, ...] * 0.587 + img[2, ...] * 0.114
+    img = tmp.unsqueeze(0)
+    return img
+
+def time_surface_rgb(data, x, y):
+    """img = np.zeros((3, x, y))
+    data = data.numpy() if type(data) != np.ndarray else data
+    pol, timestamp = data[:,2], data[:,3]
+    time_past = 0 - timestamp
+    print(np.exp(-0.1*time_past))
+    pol *= np.exp(-time_past)
+    img[0,1,2] = [pol < 0, pol == 0, pol > 0]
+    x, y = data[:,0], data[:,1]
+    pol = pol * np.exp(-time)
+    img[:,xy] = pol
+    tmp = img[0, ...] * 0.299 + img[1, ...] * 0.587 + img[2, ...] * 0.114
+    img = tmp.unsqueeze(0)
+    return img"""

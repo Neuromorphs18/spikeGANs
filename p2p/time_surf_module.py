@@ -3,7 +3,7 @@ import torch
 import numpy as np
 
 class time_surf_module(torch.nn.Module):
-    def __init__(self, D_in, H,D_out,decay_constant):
+    def __init__(self, D_in, H, decay_constant):
         super(time_surf_module, self).__init__()
         self.input_size = D_in
         self.surface_state = torch.FloatTensor(np.zeros([D_in,H]))
@@ -18,5 +18,4 @@ class time_surf_module(torch.nn.Module):
     #This don't work
     def backward(self, grad_output):
         something = np.multiply((-np.exp(-self.decay_constant)),grad_output.clone())
-        return grad_output            
-
+        return grad_output

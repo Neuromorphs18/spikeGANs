@@ -17,9 +17,12 @@ class TestOptions(BaseOptions):
         parser.add_argument('--how_many', type=int, default=50, help='how many test images to run')
         #MR edit
         parser.add_argument('--dataroot', type=str, default=self.dataroot, help='loc of weight files')
-        parser.add_argument('--name', type=str, default=self.weight_file, help='loc of weight files')
+        parser.add_argument('--name', type=str, default=self.weight_file, help='name of trained model file folder')
+        parser.add_argument('--model', type=str, default="pix2pix", help='model pix2pix, cyclegan')
+        parser.add_argument('--dataset_mode', type=str, default="aligned", help='aligned, single etc.')
 
-        parser.set_defaults(model='test')
+        parser.set_defaults(model='pix2pix')
+
         # To avoid cropping, the loadSize should be the same as fineSize
         parser.set_defaults(loadSize=parser.get_default('fineSize'))
 
