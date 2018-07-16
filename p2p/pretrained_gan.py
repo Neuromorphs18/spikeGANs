@@ -43,7 +43,7 @@ class TrainedGAN():
 
     def generate_img(self, data):
         # test
-        self.opt.dataset = data
+        self.opt.dataroot = data
         data_loader = CreateDataLoader(self.opt)
         dataset = data_loader.load_data()
 
