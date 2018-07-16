@@ -20,6 +20,7 @@ class TestOptions(BaseOptions):
         parser.add_argument('--name', type=str, default=self.weight_file, help='name of trained model file folder')
         parser.add_argument('--model', type=str, default="pix2pix", help='model pix2pix, cyclegan')
         parser.add_argument('--dataset_mode', type=str, default="aligned", help='aligned, single etc.')
+        parser.add_argument('--batchSize', type=int, default=1, help='input batch size')
 
         parser.set_defaults(model='pix2pix')
 

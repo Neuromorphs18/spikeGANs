@@ -1,5 +1,8 @@
 from os.path import join, expanduser
 import numpy as np
+import os
+from PIL import Image
+import matplotlib.pyplot as plt
 import pandas as pd
 from scipy.stats import mode
 
@@ -71,37 +74,38 @@ class AutoGRU(nn.Module):
         return out, torch.max(out, 2, keepdim=True)[1], torch.max(xids, 2, keepdim=True)[1], torch.max(yids, 2, keepdim=True)[1]
 
 
-    def compute_loss(self, spikes, target_img, x, y):
+    def compute_loss(self, spikes, target_imgs, x, y):
+        gan_input = np.full((self.batch_size, self.y, self.x, 3), 127, dtype=np.uint8)
+        #gan_input[:,:,:,1] = 255
 
-        gan_input = np.zeros((self.batch_size, self.seq_depth, 3, self.x, self.y))
-        gan_input = np.sum(gan_input, axis=1)
         print(gan_input.shape, "gan shape")
-        other_input = np.zeros((self.batch_size, self.seq_depth, 3, self.x, self.y))
-        blanks = np.zeros((self.batch_size, 3, self.x, self.y))
+
+        folder = "less_spikes"
+        try:
+            os.mkdir(folder)
+        except FileExistsError:
+            pass
+
+        self.sent_packets = []
 
         for i in range(self.batch_size):
-            other_input[i, np.arange(self.seq_depth), spikes[i].numpy().flatten(), x[i].numpy().flatten(), y[i].numpy().flatten()] = 1
+            filter = np.where(spikes[i].numpy().flatten() != 1)
+            self.sent_packets.append(torch.Tensor([len(filter[0])]) / self.seq_depth)
+            gan_input[i, y[i].numpy().flatten()[filter], x[i].numpy().flatten()[filter], spikes[i].numpy().flatten()[filter]] = 255
+            img_a = Image.fromarray(gan_input[i])
+            img_b = Image.open(os.path.join(images_folder, "targets", "{}.png".format(target_imgs[i])))
+            aligned_image = Image.new("RGB", (img_a.size[0] * 2, img_a.size[1]))
+            aligned_image.paste(img_a, (0, 0))
+            aligned_image.paste(img_b, (img_a.size[0], 0))
+            aligned_image.save(os.path.join(folder, "train", "{}.png".format(i)))
 
-        gan_input = torch.cat([torch.Tensor(gan_input), torch.Tensor(blanks)], dim=1)
+        #self.GAN.opt.dataroot = folder
+        g_loss, d_loss = self.GAN.generate_img(folder)
+        g_loss, d_loss = torch.stack(g_loss), torch.stack(d_loss)
 
-        # generate Img files
-
-        """img_a = Image.open(generator_file)
-        img_b = Image.open(target_file)
-        assert (img_a.size == img_b.size)
-        aligned_image = Image.new("RGB", (img_a.size[0] * 2, img_a.size[1]))
-        aligned_image.paste(img_a, (0, 0))
-        aligned_image.paste(img_b, (img_a.size[0], 0))
-        combined_file = join(combined_image_folder, "{:04d}.png".format(frame_counter))
-        aligned_image.save(combined_file)"""
-
-        #TODO randomly remove spkes from image and see if salient ones are picked out
-
-        self.GAN.opt.dataroot = filepath
-        g_loss = self.GAN.generate_img(gan_input)
-
-        loss = self.sent_packets / (self.seq_depth * self.batch_size)
-        loss += g_loss
+        loss = torch.stack(self.sent_packets)
+        print("l", loss.mean(), "g", g_loss.mean(), "d", d_loss.mean())
+        loss = loss + g_loss
         return loss
 
 def row_to_vec(row):
@@ -160,7 +164,7 @@ def get_batch(index, data, time_d, targets, seq_len=64, batch_size=10):
     in_data = np.array(in_data)
     in_data.reshape((seq_len, batch_size, TOTX + TOTY + 1))
 
-    return torch.Tensor(in_data), targets
+    return torch.Tensor(in_data), np.array(targets, dtype=int)
 
 if __name__ == "__main__":
     # python3 event_net.py --dataroot ~/TelGanData/Tobi1 --name spikes2tobi --model pix2pix --which_direction AtoB --gpu_ids -1
@@ -176,8 +180,8 @@ if __name__ == "__main__":
     batch_size=10
 
     #gan = TrainedGAN("/Users/Tilda/TelGanData/Tobi1/", "tobi_model1", df[df["frame_now"] == df["frame_now"].min()][["x", "y", "polarity", 'timestamp']].as_matrix())
-
-    gan = TrainedGAN("/Users/Tilda/TelGanData/Tobi1/", "tobi_model1")
+    images_folder = "/Users/Tilda/TelGanData/Tobi1"
+    gan = TrainedGAN(images_folder, "tobi_model1", batch_size=batch_size)
 
     gru = AutoGRU(TOTX, TOTY, seq_len, gan, batch_size=batch_size)
 
@@ -196,5 +200,5 @@ if __name__ == "__main__":
             data, targets = get_batch(i, xypol, time_d, img_ids, seq_len=seq_len, batch_size=batch_size) # DOES NOT SLIDE #TODO move outside loop
             output, hardmax_spikes, x, y = gru(data)
             loss = gru.compute_loss(hardmax_spikes, targets, x, y)
-            loss.backward()
+            loss.sum().backward()
             optimi.step()

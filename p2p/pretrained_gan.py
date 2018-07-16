@@ -3,7 +3,7 @@ from PIL import Image
 
 import torch
 
-from options.test_options import TestOptions
+from options.train_options import TrainOptions
 from data import CreateDataLoader
 from models import create_model
 from util.visualizer import save_images
@@ -12,8 +12,8 @@ from util.util import time_surface_rgb, rgb_to_tensor
 
 
 class TrainedGAN():
-    def __init__(self, dataroot, weight_file):
-        opt = TestOptions(dataroot, weight_file)
+    def __init__(self, dataroot, weight_file, batch_size):
+        opt = TrainOptions(dataroot, weight_file, batch_size)
         opt = opt.parse()
         opt.nThreads = 1   # test code only supports nThreads = 1
         opt.batchSize = 1  # test code only supports batchSize = 1
@@ -41,24 +41,26 @@ class TrainedGAN():
         self.webpage = html.HTML(self.web_dir, 'Experiment = %s, Phase = %s, Epoch = %s' % (opt.name, opt.phase, opt.which_epoch))
 
 
-    def generate_img(self, data):
+    def generate_img(self, data_folder):
         # test
-        self.opt.dataroot = data
+        self.opt.dataroot = data_folder
         data_loader = CreateDataLoader(self.opt)
         dataset = data_loader.load_data()
 
-        #d_loss = []
+        d_loss = []
         g_loss = []
 
         for i, data in enumerate(dataset):
-            if i >= self.opt.how_many:
-                break
+            #if i >= self.opt.how_many:
+            #    break
             self.model.set_input(data)
-            self.model.test()
-            #d = self.model.get_D_loss()
+            self.model.no_optimisation_run_through()
+            d = self.model.get_D_loss()
             g = self.model.get_G_loss()
 
-            #d_loss.append(d)
+            print(d, g)
+
+            d_loss.append(d)
             g_loss.append(g)
 
             #TODO get loss and return it
@@ -66,10 +68,10 @@ class TrainedGAN():
             img_path = self.model.get_image_paths()
             if i % 5 == 0:
                 print('processing (%04d)-th image... %s' % (i, img_path))
-            save_images(self.webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize)
+            save_images(self.webpage, visuals, img_path, aspect_ratio=self.opt.aspect_ratio, width=self.opt.display_winsize)
 
         self.webpage.save()
 
-        return g_loss
+        return g_loss, d_loss
 
 

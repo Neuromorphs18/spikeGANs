@@ -83,6 +83,8 @@ class Pix2PixModel(BaseModel):
         # Combined loss
         self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
 
+        return self.loss_D
+
 
     def backward_D(self):
         self.get_D_loss()
@@ -98,6 +100,8 @@ class Pix2PixModel(BaseModel):
         self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
 
         self.loss_G = self.loss_G_GAN + self.loss_G_L1
+
+        return self.loss_G
 
 
     def backward_G(self):
@@ -117,3 +121,12 @@ class Pix2PixModel(BaseModel):
         self.optimizer_G.zero_grad()
         self.backward_G()
         self.optimizer_G.step()
+
+    def no_optimisation_run_through(self):
+        self.forward()
+
+        #self.set_requires_grad(self.netD, False)
+        #self.optimizer_D.zero_grad()
+
+        #self.set_requires_grad(self.netD, False)
+        #self.optimizer_G.zero_grad()

@@ -2,6 +2,12 @@ from .base_options import BaseOptions
 
 
 class TrainOptions(BaseOptions):
+    def __init__(self, dataroot, weight_file, batch_size):
+        super(TrainOptions, self).__init__()
+        self.weight_file = weight_file
+        self.dataroot = dataroot
+        self.batch_size = batch_size
+
     def initialize(self, parser):
         parser = BaseOptions.initialize(self, parser)
         parser.add_argument('--display_freq', type=int, default=400, help='frequency of showing training results on screen')
@@ -24,5 +30,17 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--lr_policy', type=str, default='lambda', help='learning rate policy: lambda|step|plateau')
         parser.add_argument('--lr_decay_iters', type=int, default=50, help='multiply by a gamma every lr_decay_iters iterations')
 
+        # MR edit
+        parser.add_argument('--results_dir', type=str, default='./results/', help='saves results here.')
+        parser.add_argument('--dataroot', type=str, default=self.dataroot, help='loc of weight files')
+        parser.add_argument('--name', type=str, default=self.weight_file, help='name of trained model file folder')
+        parser.add_argument('--model', type=str, default="pix2pix", help='model pix2pix, cyclegan')
+        parser.add_argument('--dataset_mode', type=str, default="aligned", help='aligned, single etc.')
+        parser.add_argument('--aspect_ratio', type=float, default=1.0, help='aspect ratio of result images')
+        parser.add_argument('--batchSize', type=int, default=self.batch_size, help='input batch size')
+
+        parser.set_defaults(model='pix2pix')
+
         self.isTrain = True
+
         return parser
