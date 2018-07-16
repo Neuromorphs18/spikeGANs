@@ -176,8 +176,8 @@ if __name__ == "__main__":
 
     xypol, time_d, img_ids = prep_data("Tobi1_small.csv")
 
-    seq_len = 32
-    batch_size=10
+    seq_len = 64
+    batch_size=64
 
     #gan = TrainedGAN("/Users/Tilda/TelGanData/Tobi1/", "tobi_model1", df[df["frame_now"] == df["frame_now"].min()][["x", "y", "polarity", 'timestamp']].as_matrix())
     images_folder = "/Users/Tilda/TelGanData/Tobi1"
