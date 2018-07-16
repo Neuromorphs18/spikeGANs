@@ -10,8 +10,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from pretrained_gan import TrainedGAN
-from time_surf_module import time_surf_module
+from p2p.pretrained_gan import TrainedGAN
+from p2p.time_surf_module import time_surf_module
+
+TOTX = 346
+TOTY = 260
+seq_len = 32
+batch_size = 10
 
 
 class AutoGRU(nn.Module):
@@ -37,7 +42,17 @@ class AutoGRU(nn.Module):
         #TODO timesurf
         #self.time_surf = time_surf_module(606, (692, 260), decay_constant)
         self.GAN = p2pmodel
- 
+
+    def spikes_to_img(self, spikes):
+        spikes_arr = spikes.numpy()
+        spikes_arr_x = np.where(spikes_arr[:, :, :TOTX] != 0)[2].astype(np.int16)
+        spikes_arr_y = np.where(spikes_arr[:, :, TOTX:-1] != 0)[2].astype(np.int16)
+        # spike_arr_pol = spike_arr_x[np.where(spike_arr_x != 0)].astype(np.int8)
+        tot_events = batch_size * seq_len
+        spikes_arr_pol = spikes_arr[:, :, :-1].reshape((tot_events, 606))[range(tot_events), spikes_arr_x]
+        img = np.zeros((TOTX, TOTY))
+        img[spikes_arr_x, spikes_arr_y] = spikes_arr_pol
+
     def forward(self, spikes):
         #h = torch.zeros(self.n_layers, self.batch_size, self.hidden_size)
         out, h = self.gru1(spikes) #TODO link hidden layers
@@ -135,7 +150,6 @@ def prep_data(filename):
     return xypol, time_d, data[:,2]
 
 def get_batch(index, data, time_d, targets, seq_len=64, batch_size=10):
-    print(targets, "9=====")
     total_size = seq_len + batch_size
 
     data = data[index:index + total_size]
@@ -170,7 +184,7 @@ if __name__ == "__main__":
     # python3 event_net.py --dataroot ~/TelGanData/Tobi1 --name spikes2tobi --model pix2pix --which_direction AtoB --gpu_ids -1
     TOTX = 346
     TOTY = 260
-    #df = pd.read_csv("Tobi1_small.csv")
+    df = pd.read_csv("Tobi1_small.csv")
     #df["time_d"] = 0
     #df["time_d"] = np.concatenate([df["timestamp"][1:] - df["timestamp"][:-1]]).squeeze()
 
