@@ -2,6 +2,7 @@ import torch
 from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
+import torchvision.transforms as transforms
 
 
 class Pix2PixModel(BaseModel):
@@ -67,7 +68,7 @@ class Pix2PixModel(BaseModel):
     def forward(self):
         self.fake_B = self.netG(self.real_A)
 
-    def backward_D(self):
+    def get_D_loss(self):
         # Fake
         # stop backprop to the generator by detaching fake_B
         fake_AB = self.fake_AB_pool.query(torch.cat((self.real_A, self.fake_B), 1))
@@ -82,9 +83,14 @@ class Pix2PixModel(BaseModel):
         # Combined loss
         self.loss_D = (self.loss_D_fake + self.loss_D_real) * 0.5
 
+        return self.loss_D
+
+
+    def backward_D(self):
+        self.get_D_loss()
         self.loss_D.backward()
 
-    def backward_G(self):
+    def get_G_loss(self):
         # First, G(A) should fake the discriminator
         fake_AB = torch.cat((self.real_A, self.fake_B), 1)
         pred_fake = self.netD(fake_AB)
@@ -95,6 +101,11 @@ class Pix2PixModel(BaseModel):
 
         self.loss_G = self.loss_G_GAN + self.loss_G_L1
 
+        return self.loss_G
+
+
+    def backward_G(self):
+        self.get_G_loss()
         self.loss_G.backward()
 
     def optimize_parameters(self):
@@ -110,3 +121,12 @@ class Pix2PixModel(BaseModel):
         self.optimizer_G.zero_grad()
         self.backward_G()
         self.optimizer_G.step()
+
+    def no_optimisation_run_through(self):
+        self.forward()
+
+        #self.set_requires_grad(self.netD, False)
+        #self.optimizer_D.zero_grad()
+
+        #self.set_requires_grad(self.netD, False)
+        #self.optimizer_G.zero_grad()

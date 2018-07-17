@@ -11,8 +11,8 @@ class BaseOptions():
         self.initialized = False
 
     def initialize(self, parser):
-        parser.add_argument('--dataroot', required=True, help='path to images (should have subfolders trainA, trainB, valA, valB, etc)')
-        parser.add_argument('--batchSize', type=int, default=1, help='input batch size')
+        #MR EDIT parser.add_argument('--dataroot', required=True, help='path to images (should have subfolders trainA, trainB, valA, valB, etc)')
+        #parser.add_argument('--batchSize', type=int, default=1, help='input batch size')
         parser.add_argument('--loadSize', type=int, default=286, help='scale images to this size')
         parser.add_argument('--fineSize', type=int, default=256, help='then crop to this size')
         parser.add_argument('--input_nc', type=int, default=3, help='# of input image channels')
@@ -23,10 +23,10 @@ class BaseOptions():
         parser.add_argument('--which_model_netG', type=str, default='resnet_9blocks', help='selects model to use for netG')
         parser.add_argument('--n_layers_D', type=int, default=3, help='only used if which_model_netD==n_layers')
         parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
-        parser.add_argument('--name', type=str, default='experiment_name', help='name of the experiment. It decides where to store samples and models')
-        parser.add_argument('--dataset_mode', type=str, default='unaligned', help='chooses how datasets are loaded. [unaligned | aligned | single]')
-        parser.add_argument('--model', type=str, default='cycle_gan',
-                            help='chooses which model to use. cycle_gan, pix2pix, test')
+        #parser.add_argument('--name', type=str, default='experiment_name', help='name of the experiment. It decides where to store samples and models')
+        #parser.add_argument('--dataset_mode', type=str, default='unaligned', help='chooses how datasets are loaded. [unaligned | aligned | single]')
+        #parser.add_argument('--model', type=str, default='cycle_gan',
+        #                    help='chooses which model to use. cycle_gan, pix2pix, test')
         parser.add_argument('--which_direction', type=str, default='AtoB', help='AtoB or BtoA')
         parser.add_argument('--nThreads', default=4, type=int, help='# threads for loading data')
         parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
@@ -44,6 +44,8 @@ class BaseOptions():
         parser.add_argument('--init_gain', type=float, default=0.02, help='scaling factor for normal, xavier and orthogonal.')
         parser.add_argument('--verbose', action='store_true', help='if specified, print more debugging information')
         parser.add_argument('--suffix', default='', type=str, help='customized suffix: opt.name = opt.name + suffix: e.g., {model}_{which_model_netG}_size{loadSize}')
+
+
         self.initialized = True
         return parser
 
@@ -111,8 +113,10 @@ class BaseOptions():
             id = int(str_id)
             if id >= 0:
                 opt.gpu_ids.append(id)
-        if len(opt.gpu_ids) > 0:
-            torch.cuda.set_device(opt.gpu_ids[0])
+        #TODO fix this gpu thing
+        opt.gpu_ids = []
+        #if len(opt.gpu_ids) > 0:
+        #    torch.cuda.set_device(opt.gpu_ids[0])
 
         self.opt = opt
         return self.opt

@@ -1,6 +1,7 @@
 # Import the required libraries to load and execute the code
 from os import makedirs
 from os.path import join, exists
+import argparse
 
 from PIL import Image
 
@@ -37,11 +38,17 @@ def ConvertTDeventsToAccumulatedFrame(state, td_events, width=346, height=260, t
     #return [state, td_image.transpose()]
     return [state, surface_image.transpose()]
 
+parser = argparse.ArgumentParser()
+parser.add_argument('-i', '--input', help='input aedat')
+parser.add_argument('-o', '--output', help='output folder')
+parser.add_argument('-t', '--tau', default=1e6, help='time constant')
+parser.add_argument('-n', '--name', help='output file prefix')
+args = parser.parse_args()
 
 # Configure the input and output folders
-input_file_path = 'C:\\Data\\GAN Dataset\\Tobi_conversation.aedat'
-output_folder = 'C:\\Data\\GAN Dataset\\Tobi\\ExponentialSurface'
-tau = 1e6
+input_file_path = args.input
+output_folder = args.output
+tau = args.tau
 
 generator_image_folder = join(output_folder, 'generator')
 target_image_folder = join(output_folder, 'targets')
@@ -134,12 +141,13 @@ for frame_counter in range(1, num_frames):
     # Concatenate the two images together
     img_a = Image.open(generator_file)
     img_b = Image.open(target_file)
-    assert(img_a.size == img_b.size)
-    aligned_image = Image.new("RGB", (img_a.size[0] * 2, img_a.size[1]))
-    aligned_image.paste(img_a, (0, 0))
-    aligned_image.paste(img_b, (img_a.size[0], 0))
-    combined_file = join(combined_image_folder, "{:04d}.png".format(frame_counter))
-    aligned_image.save(combined_file)    
+    if (img_a.size == img_b.size):
+        #assert(img_a.size == img_b.size)
+        aligned_image = Image.new("RGB", (img_a.size[0] * 2, img_a.size[1]))
+        aligned_image.paste(img_a, (0, 0))
+        aligned_image.paste(img_b, (img_a.size[0], 0))
+        combined_file = join(combined_image_folder, args.name+"-{:04d}.png".format(frame_counter))
+        aligned_image.save(combined_file)    
     
 matplotlib.pyplot.figure()
 matplotlib.pyplot.subplot(1,2,1)
