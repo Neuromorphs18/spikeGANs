@@ -22,6 +22,7 @@ batch_size = 10
 class AutoGRU(nn.Module):
     def __init__(self, x, y, seq_depth, p2pmodel, batch_size=10):
         super(AutoGRU,self).__init__()
+        self.time_surf = None
         self.x, self.y = x, y
         self.decay_constant = 0.1
         self.seq_depth = seq_depth
@@ -36,8 +37,8 @@ class AutoGRU(nn.Module):
         self.gather_y = torch.LongTensor(list(range(self.x, self.x + self.y)))
         self.pass_on = nn.Linear(self.x + self.y, 1)
 
-
-        decay_constant = 0.1
+        self.time_surf_module = time_surf_module(TOTX, TOTY, 1e-4)
+        # decay_constant = 0.1
         #TODO timesurf
         #self.time_surf = time_surf_module(606, (692, 260), decay_constant)
         self.GAN = p2pmodel
@@ -48,9 +49,11 @@ class AutoGRU(nn.Module):
         spikes_arr_y = np.where(spikes_arr[:, :, TOTX:-1] != 0)[2].astype(np.int16)
         # spike_arr_pol = spike_arr_x[np.where(spike_arr_x != 0)].astype(np.int8)
         tot_events = batch_size * seq_len
-        spikes_arr_pol = spikes_arr[:, :, :-1].reshape((tot_events, 606))[range(tot_events), spikes_arr_x]
+        # spikes_arr_pol = spikes_arr[:, :, :-1].reshape((tot_events, 606))[range(tot_events), spikes_arr_x]
+        times = spikes_arr[:, :, -1].reshape((tot_events,))
         img = np.zeros((TOTX, TOTY))
-        img[spikes_arr_x, spikes_arr_y] = spikes_arr_pol
+        img[spikes_arr_x, spikes_arr_y] = times
+        return torch.Tensor(img)
 
     def forward(self, spikes):
         #h = torch.zeros(self.n_layers, self.batch_size, self.hidden_size)
@@ -58,13 +61,15 @@ class AutoGRU(nn.Module):
         out, h = self.gru2(out)
         out, h = self.gru3(out)
 
-        out = F.binary_cross_entropy(self.pass_on(out), dim=2) #comment out for batch-wise spike output
+        out = F.threshold(self.pass_on(out), .5, 1)#, dim=2) #comment out for batch-wise spike output
+
+        self.time_surf = self.time_surf_module(spikes, out)
 
         return out
 
     def compute_loss(self, yes_no, data, target_imgs):
-        gan_input = np.zeros(self.batch_size, self.y, self.x, 3)
-        gan_input[:, :, :, 1] = 255
+        if self.time_surf is not None:
+            gan_input = self.time_surf
 
         print(gan_input.shape, "gan shape")
 
@@ -76,9 +81,9 @@ class AutoGRU(nn.Module):
             pass
 
         for i in range(self.batch_size):
-            filter = np.where(spikes[i].numpy().flatten() != 1)
-            gan_input[i, y[i].numpy().flatten()[filter], x[i].numpy().flatten()[filter], spikes[i].numpy().flatten()[
-                filter]] = 255
+            # filter = np.where(data[i].numpy().flatten() != 1)
+            # gan_input[i, y[i].numpy().flatten()[filter], x[i].numpy().flatten()[filter], data[i].numpy().flatten()[
+            #     filter]] = 255
 
             img_a = Image.fromarray(gan_input[i])
             img_b = Image.open(os.path.join(images_folder, "targets", "{}.png".format(target_imgs[i])))
@@ -157,17 +162,17 @@ if __name__ == "__main__":
     # python3 event_net.py --dataroot ~/TelGanData/Tobi1 --name spikes2tobi --model pix2pix --which_direction AtoB --gpu_ids -1
     TOTX = 346
     TOTY = 260
-    df = pd.read_csv("Tobi1_small.csv")
+    df = pd.read_csv("/Users/massimilianoiacono/workspace/datasets/Tobi/Tobi1.csv")
     #df["time_d"] = 0
     #df["time_d"] = np.concatenate([df["timestamp"][1:] - df["timestamp"][:-1]]).squeeze()
 
-    xypol, time_d, img_ids = prep_data("Tobi1_small.csv")
+    xypol, time_d, img_ids = prep_data("/Users/massimilianoiacono/workspace/datasets/Tobi/Tobi1.csv")
 
     seq_len = 64
     batch_size=64
 
     #gan = TrainedGAN("/Users/Tilda/TelGanData/Tobi1/", "tobi_model1", df[df["frame_now"] == df["frame_now"].min()][["x", "y", "polarity", 'timestamp']].as_matrix())
-    images_folder = "/Users/Tilda/TelGanData/Tobi1"
+    images_folder = "/Users/massimilianoiacono/workspace/datasets/Tobi/Tobi1"
     gan = TrainedGAN(images_folder, "tobi_model1", batch_size=batch_size)
 
     gru = AutoGRU(TOTX, TOTY, seq_len, gan, batch_size=batch_size)
