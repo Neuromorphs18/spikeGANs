@@ -1,150 +1,67 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from PIL import Image
-import pandas as pd
 
 
-def get_event_surface_from_events(td_events, config, state):
-    """ Converts the specified TD data to an time surface frame."""
+def get_frames(aedat, config):
 
     width = config.getint('input', 'width')
     height = config.getint('input', 'height')
     tau = eval(config.get('algorithm', 'tau'))
 
-    if state is None:
-        state = {'last_spike_time': np.zeros([width, height]),
-                 'last_spike_polarity': np.zeros([width, height])}
-
-    td_image = np.zeros([width, height])
-
-    last_t = 0
-    for event in td_events:
-        [x, y, p, t] = event
-
-        state['last_spike_time'][x, y] = t
-        state['last_spike_polarity'][x, y] = 1 if p else -1
-        last_t = t
-
-        td_image[x, y] = p
-
-    surface_image = state['last_spike_polarity'] * np.exp(
-        (state['last_spike_time'] - last_t) / tau)
-
-    return [state, surface_image.transpose()]
-
-
-def get_frames(aedat, config):
     num_frames = aedat['data']['frame']['numEvents']
-    num_events = aedat['info']['lastTimeStamp'] - \
-        aedat['info']['firstTimeStamp']
-    assert (num_frames > 0)
-    assert (num_frames == len(aedat['data']['frame']['samples']))
+    fps_updample_factor = config.getint('algorithm', 'fps_upsample_factor')
+    num_frames_desired = num_frames * fps_updample_factor
+    num_events = len(aedat['data']['polarity']['timeStamp'])
+    num_events_per_frame = int(num_events / num_frames_desired)
 
-    last_frame_start = aedat['data']['frame']['timeStampStart'][0]
-    last_frame_end = aedat['data']['frame']['timeStampEnd'][0]
-    last_td_timestamp_index = 0
-    last_td_timestamp = \
-        aedat['data']['polarity']['timeStamp'][last_td_timestamp_index]
+    generator_image_path = config.get('paths', 'generator_image_path')
+    target_image_path = config.get('paths', 'target_image_path')
 
-    update_interval = round(max(num_frames / 100, 1))
+    last_timestamp_array = np.zeros([width, height])
+    last_polarity_array = np.zeros([width, height])
 
-    event_data = []
-    event_id = 0
+    frame_idx = 0
+    for sub_frame_counter in range(num_frames_desired):
 
-    # Loop through the frames and save them accordingly
-    for frame_counter in range(1, num_frames):
+        if config.getboolean('algorithm', 'reset_timesurface'):
+            last_timestamp_array = np.zeros_like(last_timestamp_array)
+            last_polarity_array = np.zeros_like(last_polarity_array)
 
-        # Find out when the frame started and ended
-        frame_start = aedat['data']['frame']['timeStampStart'][frame_counter]
-        frame_end = aedat['data']['frame']['timeStampEnd'][frame_counter]
+        for event_idx in range(sub_frame_counter * num_events_per_frame,
+                               (sub_frame_counter + 1) * num_events_per_frame):
 
-        # Figure out the range of TD times that we are interested in
-        assert (last_frame_end <= frame_start)
-        td_range = [last_frame_end, frame_start]
-        last_frame_start = \
-            aedat['data']['frame']['timeStampStart'][frame_counter]
-        last_frame_end = aedat['data']['frame']['timeStampEnd'][frame_counter]
+            x = aedat['data']['polarity']['x'][event_idx]
+            y = aedat['data']['polarity']['y'][event_idx]
+            p = aedat['data']['polarity']['polarity'][event_idx]
+            t = aedat['data']['polarity']['timeStamp'][event_idx]
 
-        # Extract the TD region for this frame
+            last_timestamp_array[x, y] = t
+            last_polarity_array[x, y] = 1 if p else -1
 
-        # Ensure that we're seeking to a time in the future
-        assert (last_td_timestamp <= td_range[0])
-        # Find the starting event
-        while last_td_timestamp < td_range[0] and \
-                last_td_timestamp_index < num_events:
-            last_td_timestamp_index += 1
-            last_td_timestamp = \
-                aedat['data']['polarity']['timeStamp'][last_td_timestamp_index]
-        # Now find the last event and store all intermediate events in the
-        # array
+        last_timestamp = np.max(last_timestamp_array)
 
-        td_events = []
-        frame_now = 1
-        while last_td_timestamp < td_range[1] and \
-                last_td_timestamp_index < num_events:
-            td_events.append(
-                [aedat['data']['polarity']['x'][last_td_timestamp_index],
-                 aedat['data']['polarity']['y'][last_td_timestamp_index],
-                 aedat['data']['polarity']['polarity'][last_td_timestamp_index],
-                 aedat['data']['polarity']['timeStamp'][last_td_timestamp_index]])
-            event_id += 1
-            frame_now = 0
-            last_td_timestamp_index += 1
-            last_td_timestamp = \
-                aedat['data']['polarity']['timeStamp'][last_td_timestamp_index]
-        # Convert the events to a numpy array
-        td_events = np.array(td_events)
+        time_surface = last_polarity_array * np.exp((last_timestamp_array -
+                                                     last_timestamp) / tau)
 
-        event_data += td_events
+        time_surface = np.fliplr(np.flipud(time_surface.transpose()))
 
-        print('Frame: {} Read {} events from time {} to time {}'.format(
-            frame_counter, td_events.shape[0], td_range[0], td_range[1]))
+        sub_frame_idx = sub_frame_counter % fps_updample_factor
 
-        state = None
+        if sub_frame_counter > 0 and sub_frame_idx == 0:
+            frame_idx += 1
 
-        # Extract the frame data and flip it accordingly
-        state, td_frame = get_event_surface_from_events(td_events, config,
-                                                        state)
-        aps_frame = aedat['data']['frame']['samples'][frame_counter]
-        td_frame = np.fliplr(np.flipud(td_frame))
-        aps_frame = np.flipud(aps_frame)
+        generator_file = os.path.join(
+            generator_image_path, "{}.{}.png".format(frame_idx, sub_frame_idx))
+        plt.imsave(generator_file, time_surface, cmap='jet')
+        print('Saved sub-frame {} with last timestamp {:.0f}.'.format(
+            sub_frame_counter, last_timestamp))
 
-        # Save the images
-        generator_file = os.path.join(config.get(
-            'paths', 'generator_image_path'), "{}.png".format(frame_counter))
-        target_file = os.path.join(config.get('paths', 'target_image_path'),
-                                   "{}.png".format(frame_counter))
-        cmap = plt.cm.jet
-        plt.imsave(generator_file, td_frame, cmap=cmap)
-        plt.imsave(target_file, aps_frame, cmap='gray')
+        if config.getboolean('output', 'save_aps_frames') \
+                and sub_frame_idx == 0:
+            aps_frame = aedat['data']['frame']['samples'][frame_idx]
+            aps_frame = np.flipud(aps_frame)
 
-        # Concatenate the two images together
-        img_a = Image.open(generator_file)
-        img_b = Image.open(target_file)
-        assert (img_a.size == img_b.size)
-        aligned_image = Image.new("RGB", (img_a.size[0] * 2, img_a.size[1]))
-        aligned_image.paste(img_a, (0, 0))
-        aligned_image.paste(img_b, (img_a.size[0], 0))
-        combined_file =\
-            os.path.join(config.get('paths', 'combined_image_path'),
-                         "{:04d}.png".format(frame_counter))
-        aligned_image.save(combined_file)
-
-        if frame_counter % update_interval == 0:
-            # Render the frame
-            # plt.figure()
-            plt.subplot(1, 2, 1)
-            plt.imshow(aps_frame)
-            plt.title(
-                'Frame: {} Read {} events from time {} to time {}'.format(
-                    frame_counter, td_events.shape[0], td_range[0],
-                    td_range[1]))
-            plt.subplot(1, 2, 2)
-            plt.imshow(td_frame)
-
-    # df = pd.DataFrame(np.array(event_data),
-    #                   columns=["frame_now", "event_id", "prev_frame", "x", "y",
-    #                            "polarity", "timestamp"])
-    # df.to_csv(os.path.join(config.get('paths', 'log_path'),
-    #                        "{}.csv".format('output')), index=False)
+            target_file = os.path.join(target_image_path,
+                                       "{}.png".format(frame_idx))
+            plt.imsave(target_file, aps_frame, cmap='gray')
