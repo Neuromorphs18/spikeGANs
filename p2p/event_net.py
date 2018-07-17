@@ -10,8 +10,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from p2p.pretrained_gan import TrainedGAN
-from p2p.time_surf_module import time_surf_module
+from pretrained_gan import TrainedGAN
+from time_surf_module import time_surf_module
 
 TOTX = 346
 TOTY = 260
@@ -22,7 +22,6 @@ batch_size = 10
 class AutoGRU(nn.Module):
     def __init__(self, x, y, seq_depth, p2pmodel, batch_size=10):
         super(AutoGRU,self).__init__()
-        self.time_surf = None
         self.x, self.y = x, y
         self.decay_constant = 0.1
         self.seq_depth = seq_depth
@@ -32,11 +31,8 @@ class AutoGRU(nn.Module):
         self.hid2 = 200
         self.gru1 = nn.GRU(input_size=self.x + self.y + 1,  hidden_size=self.hidden_size, batch_first=False) # x * y + 1 (==)
         self.gru2 = nn.GRU(input_size=self.hidden_size, hidden_size=self.hid2, batch_first=False)
-        self.gru3 = nn.GRU(input_size=200, hidden_size=self.x + self.y, batch_first=False)
-        self.gather_x = torch.LongTensor(list(range(self.x)))
-        self.gather_y = torch.LongTensor(list(range(self.x, self.x + self.y)))
-        self.pass_on = nn.Linear(self.x + self.y, 1)
-
+        self.gru3 = nn.GRU(input_size=200, hidden_size=1, batch_first=False)
+        #self.pass_on = nn.Linear(self.x + self.y, 1)
         self.time_surf_module = time_surf_module(TOTX, TOTY, 1e-4)
         # decay_constant = 0.1
         #TODO timesurf
@@ -61,15 +57,17 @@ class AutoGRU(nn.Module):
         out, h = self.gru2(out)
         out, h = self.gru3(out)
 
-        out = F.threshold(self.pass_on(out), .5, 1)#, dim=2) #comment out for batch-wise spike output
+        out = F.sigmoid(out).round() #, dim=2) #comment out for batch-wise spike output
 
-        self.time_surf = self.time_surf_module(spikes, out)
+        time_surf = self.time_surf_module(spikes, out)
 
-        return out
+        self.sent_packets = out.sum() / (self.batch_size*self.seq_depth)
 
-    def compute_loss(self, yes_no, data, target_imgs):
-        if self.time_surf is not None:
-            gan_input = self.time_surf
+        return time_surf
+
+    def compute_loss(self, time_surf, target_img):
+        if time_surf is not None:
+            gan_input = time_surf
 
         print(gan_input.shape, "gan shape")
 
@@ -80,17 +78,16 @@ class AutoGRU(nn.Module):
         except FileExistsError:
             pass
 
-        for i in range(self.batch_size):
-            # filter = np.where(data[i].numpy().flatten() != 1)
-            # gan_input[i, y[i].numpy().flatten()[filter], x[i].numpy().flatten()[filter], data[i].numpy().flatten()[
-            #     filter]] = 255
 
-            img_a = Image.fromarray(gan_input[i])
-            img_b = Image.open(os.path.join(images_folder, "targets", "{}.png".format(target_imgs[i])))
-            aligned_image = Image.new("RGB", (img_a.size[0] * 2, img_a.size[1]))
-            aligned_image.paste(img_a, (0, 0))
-            aligned_image.paste(img_b, (img_a.size[0], 0))
-            aligned_image.save(os.path.join(folder, "train", "{}.png".format(i)))
+        i = 1
+        #plt.imshow(gan_input.numpy())
+        #plt.show()
+        img_a = Image.fromarray((255*gan_input.numpy()).astype(np.uint8).reshape(self.y, self.x, 3)) #TODO why is this differnt to matplotlib?
+        img_b = Image.open(os.path.join(images_folder, "targets", "{}.png".format(target_img)))
+        aligned_image = Image.new("RGB", (img_a.size[0] * 2, img_a.size[1]))
+        aligned_image.paste(img_a, (0, 0))
+        aligned_image.paste(img_b, (img_a.size[0], 0))
+        aligned_image.save(os.path.join(folder, "train", "{}.png".format(i)))
 
         #self.GAN.opt.dataroot = folder
         g_loss, d_loss = self.GAN.generate_img(folder)
@@ -145,34 +142,30 @@ def get_batch(index, data, time_d, targets, seq_len=64, batch_size=10):
     """
     newd[:, -1] = time_d # TODO scale time_d to 0,1 or scale spikes by this - what about when the camera stays still for a long time? - will go to 0 - does this matter/
     in_data = []
-    #xs = []
-    #ys = []
-    targs = []
+
 
     for i in range(batch_size):
         in_data.append(newd[i:i+seq_len])
-        targs.append(mode(targets[i:i+seq_len]))
 
     in_data = np.array(in_data)
     in_data.reshape((seq_len, batch_size, TOTX + TOTY + 1))
 
-    return torch.Tensor(in_data), np.array(targets, dtype=int)
+    print(mode(targets).mode)
+
+    return torch.Tensor(in_data), int(mode(targets).mode)
 
 if __name__ == "__main__":
     # python3 event_net.py --dataroot ~/TelGanData/Tobi1 --name spikes2tobi --model pix2pix --which_direction AtoB --gpu_ids -1
     TOTX = 346
     TOTY = 260
-    df = pd.read_csv("/Users/massimilianoiacono/workspace/datasets/Tobi/Tobi1.csv")
-    #df["time_d"] = 0
-    #df["time_d"] = np.concatenate([df["timestamp"][1:] - df["timestamp"][:-1]]).squeeze()
+    file = "Tobi1_small.csv"
 
-    xypol, time_d, img_ids = prep_data("/Users/massimilianoiacono/workspace/datasets/Tobi/Tobi1.csv")
+    xypol, time_d, img_ids = prep_data(file)
 
     seq_len = 64
     batch_size=64
 
-    #gan = TrainedGAN("/Users/Tilda/TelGanData/Tobi1/", "tobi_model1", df[df["frame_now"] == df["frame_now"].min()][["x", "y", "polarity", 'timestamp']].as_matrix())
-    images_folder = "/Users/massimilianoiacono/workspace/datasets/Tobi/Tobi1"
+    images_folder = "/Users/Tilda/TelGanData/Tobi1/"
     gan = TrainedGAN(images_folder, "tobi_model1", batch_size=batch_size)
 
     gru = AutoGRU(TOTX, TOTY, seq_len, gan, batch_size=batch_size)
@@ -191,6 +184,6 @@ if __name__ == "__main__":
             optimi.zero_grad()
             data, targets = get_batch(i, xypol, time_d, img_ids, seq_len=seq_len, batch_size=batch_size) # DOES NOT SLIDE #TODO move outside loop
             output = gru(data)
-            loss = gru.compute_loss(output, data, targets)
+            loss = gru.compute_loss(output, targets)
             loss.sum().backward()
             optimi.step()
