@@ -34,9 +34,8 @@ class AutoGRU(nn.Module):
         self.gru3 = nn.GRU(input_size=200, hidden_size=self.x + self.y, batch_first=False)
         self.gather_x = torch.LongTensor(list(range(self.x)))
         self.gather_y = torch.LongTensor(list(range(self.x, self.x + self.y)))
-        self.pass_on = nn.Linear(self.x + self.y, 3)
-        self.x_layer = nn.Linear(self.x, self.x)
-        self.y_layer = nn.Linear(self.y, self.y)
+        self.pass_on = nn.Linear(self.x + self.y, 1)
+
 
         decay_constant = 0.1
         #TODO timesurf
@@ -59,54 +58,28 @@ class AutoGRU(nn.Module):
         out, h = self.gru2(out)
         out, h = self.gru3(out)
 
-        #final_layer = out.index_select(1, torch.LongTensor([self.batch_size - 1])).squeeze() for one spike at a time
+        out = F.binary_cross_entropy(self.pass_on(out), dim=2) #comment out for batch-wise spike output
 
-        print(out.shape)
-        x = torch.index_select(out, 2, self.gather_x)
-        y = torch.index_select(out, 2, self.gather_y)
+        return out
 
-        #mask = torch.bmm(x.round().permute(0,2,1), (y).round()).abs().clamp(max=1)
-
-        out = F.softmax(self.pass_on(out), dim=2) #comment out for batch-wise spike output
-        xids = F.softmax(self.x_layer(x), dim=2)
-        yids = F.softmax(self.y_layer(y), dim=2)
-
-        print(out.shape, xids.shape, yids.shape, "*****")
-
-        """out = F.sigmoid(out)
-        # wrap into 2d
-        
-        #TODO this outputs for last 64 steps, do we want just the last time-step
-        print(out.size())
-        print(x.size(), y.size(), mask.size())
-        x = x.squeeze().unsqueeze(-1).expand(self.batch_size, self.x, self.y)
-        y = y.squeeze().unsqueeze(-1).expand(self.batch_size, self.x, self.y)
-        out = torch.bmm(x.round().permute(0,2,1), (y).round()).clamp(min=-1, max=1)
-        """
-
-        self.sent_packets = out.max(2)[1].abs().sum() #TODO this is wrong - middle col does not count
-
-        return out, torch.max(out, 2, keepdim=True)[1], torch.max(xids, 2, keepdim=True)[1], torch.max(yids, 2, keepdim=True)[1]
-
-
-    def compute_loss(self, spikes, target_imgs, x, y):
-        gan_input = np.full((self.batch_size, self.y, self.x, 3), 127, dtype=np.uint8)
-        #gan_input[:,:,:,1] = 255
+    def compute_loss(self, yes_no, data, target_imgs):
+        gan_input = np.zeros(self.batch_size, self.y, self.x, 3)
+        gan_input[:, :, :, 1] = 255
 
         print(gan_input.shape, "gan shape")
 
         folder = "less_spikes"
+
         try:
             os.mkdir(folder)
         except FileExistsError:
             pass
 
-        self.sent_packets = []
-
         for i in range(self.batch_size):
             filter = np.where(spikes[i].numpy().flatten() != 1)
-            self.sent_packets.append(torch.Tensor([len(filter[0])]) / self.seq_depth)
-            gan_input[i, y[i].numpy().flatten()[filter], x[i].numpy().flatten()[filter], spikes[i].numpy().flatten()[filter]] = 255
+            gan_input[i, y[i].numpy().flatten()[filter], x[i].numpy().flatten()[filter], spikes[i].numpy().flatten()[
+                filter]] = 255
+
             img_a = Image.fromarray(gan_input[i])
             img_b = Image.open(os.path.join(images_folder, "targets", "{}.png".format(target_imgs[i])))
             aligned_image = Image.new("RGB", (img_a.size[0] * 2, img_a.size[1]))
@@ -212,7 +185,7 @@ if __name__ == "__main__":
             print("batch", i, end=" ")
             optimi.zero_grad()
             data, targets = get_batch(i, xypol, time_d, img_ids, seq_len=seq_len, batch_size=batch_size) # DOES NOT SLIDE #TODO move outside loop
-            output, hardmax_spikes, x, y = gru(data)
-            loss = gru.compute_loss(hardmax_spikes, targets, x, y)
+            output = gru(data)
+            loss = gru.compute_loss(output, data, targets)
             loss.sum().backward()
             optimi.step()
