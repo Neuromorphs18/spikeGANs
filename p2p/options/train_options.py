@@ -2,11 +2,12 @@ from .base_options import BaseOptions
 
 
 class TrainOptions(BaseOptions):
-    def __init__(self, dataroot, weight_file, batch_size):
+    def __init__(self, dataroot, weight_file, batch_size, gpu_args=-1):
         super(TrainOptions, self).__init__()
         self.weight_file = weight_file
         self.dataroot = dataroot
         self.batch_size = batch_size
+        self.gpu_args=gpu_args
 
     def initialize(self, parser):
         parser = BaseOptions.initialize(self, parser)
@@ -38,6 +39,7 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--dataset_mode', type=str, default="aligned", help='aligned, single etc.')
         parser.add_argument('--aspect_ratio', type=float, default=1.0, help='aspect ratio of result images')
         parser.add_argument('--batchSize', type=int, default=self.batch_size, help='input batch size')
+        parser.add_argument('--gpu_ids', type=str, default=str(self.gpu_args), help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
 
         parser.set_defaults(model='pix2pix')
 
