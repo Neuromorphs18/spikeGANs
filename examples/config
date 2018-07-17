@@ -5,7 +5,9 @@ log_path = C:\Users\bodor\Downloads\Tobi
 runlabel = test
 
 [algorithm]
-tau = 1e6
+tau = 5e3
+fps_upsample_factor = 5
+reset_timesurface = False
 
 [input]
 dataset_format = aedat
@@ -13,3 +15,6 @@ width = 346
 height = 260
 start_event = 1e6
 end_event = 10e6
+
+[output]
+save_aps_frames = False

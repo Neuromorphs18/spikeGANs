@@ -6,6 +6,8 @@ runlabel = test
 
 [algorithm]
 tau = 1e6
+fps_upsample_factor = 1
+reset_timesurface = True
 
 [input]
 dataset_format =
