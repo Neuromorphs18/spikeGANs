@@ -10,8 +10,8 @@ def get_frames(aedat, config):
     tau = eval(config.get('algorithm', 'tau'))
 
     num_frames = aedat['data']['frame']['numEvents']
-    fps_updample_factor = config.getint('algorithm', 'fps_upsample_factor')
-    num_frames_desired = num_frames * fps_updample_factor
+    fps_upsample_factor = config.getint('algorithm', 'fps_upsample_factor')
+    num_frames_desired = num_frames * fps_upsample_factor
     num_events = len(aedat['data']['polarity']['timeStamp'])
     num_events_per_frame = int(num_events / num_frames_desired)
 
@@ -22,6 +22,11 @@ def get_frames(aedat, config):
     last_polarity_array = np.zeros([width, height])
 
     frame_idx = 0
+    first_timestamp_current_frame = \
+        aedat['data']['frame']['timeStampStart'][frame_idx]
+    last_timestamp_current_frame = \
+        aedat['data']['frame']['timeStampEnd'][frame_idx]
+
     for sub_frame_counter in range(num_frames_desired):
 
         if config.getboolean('algorithm', 'reset_timesurface'):
@@ -36,6 +41,10 @@ def get_frames(aedat, config):
             p = aedat['data']['polarity']['polarity'][event_idx]
             t = aedat['data']['polarity']['timeStamp'][event_idx]
 
+            if first_timestamp_current_frame <= t \
+                    <= last_timestamp_current_frame:
+                continue
+
             pp = 1 if p or config.getboolean('algorithm', 'rectify_polarity') \
                 else -1
             last_timestamp_array[x, y] = t
@@ -48,10 +57,14 @@ def get_frames(aedat, config):
 
         time_surface = np.fliplr(np.flipud(time_surface.transpose()))
 
-        sub_frame_idx = sub_frame_counter % fps_updample_factor
+        sub_frame_idx = sub_frame_counter % fps_upsample_factor
 
         if sub_frame_counter > 0 and sub_frame_idx == 0:
             frame_idx += 1
+            first_timestamp_current_frame = \
+                aedat['data']['frame']['timeStampStart'][frame_idx]
+            last_timestamp_current_frame = \
+                aedat['data']['frame']['timeStampEnd'][frame_idx]
 
         generator_file = os.path.join(
             generator_image_path, "{}.{}.png".format(frame_idx, sub_frame_idx))
