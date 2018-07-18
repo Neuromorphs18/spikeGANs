@@ -29,39 +29,47 @@ class AutoGRU(nn.Module):
         self.batch_size = batch_size
         self.hidden_size = 700
         self.hid2 = 200
+        # self.conv1 = nn.Conv2d(3, 3, (3, 3))
+        # self.conv2 = nn.Conv2d(3, 3, (3, 3))
+        # self.conv3 = nn.Conv2d(3, 3, (3, 3))
         self.gru1 = nn.GRU(input_size=self.x + self.y + 1,  hidden_size=self.hidden_size, batch_first=False) # x * y + 1 (==)
         self.gru2 = nn.GRU(input_size=self.hidden_size, hidden_size=self.hid2, batch_first=False)
         self.gru3 = nn.GRU(input_size=200, hidden_size=1, batch_first=False)
-        #self.pass_on = nn.Linear(self.x + self.y, 1)
+        self.pass_on = nn.Linear(self.batch_size*self.seq_depth, self.x*self.y*3)
         self.time_surf_module = time_surf_module(TOTX, TOTY, 1e-4)
         # decay_constant = 0.1
         #TODO timesurf
         #self.time_surf = time_surf_module(606, (692, 260), decay_constant)
         self.GAN = p2pmodel
 
-    def spikes_to_img(self, spikes):
-        spikes_arr = spikes.numpy()
-        spikes_arr_x = np.where(spikes_arr[:, :, :TOTX] != 0)[2].astype(np.int16)
-        spikes_arr_y = np.where(spikes_arr[:, :, TOTX:-1] != 0)[2].astype(np.int16)
-        # spike_arr_pol = spike_arr_x[np.where(spike_arr_x != 0)].astype(np.int8)
-        tot_events = batch_size * seq_len
-        # spikes_arr_pol = spikes_arr[:, :, :-1].reshape((tot_events, 606))[range(tot_events), spikes_arr_x]
-        times = spikes_arr[:, :, -1].reshape((tot_events,))
-        img = np.zeros((TOTX, TOTY))
-        img[spikes_arr_x, spikes_arr_y] = times
-        return torch.Tensor(img)
+    # def spikes_to_img(self, spikes):
+    #     spikes_arr = spikes.numpy()
+    #     spikes_arr_x = np.where(spikes_arr[:, :, :TOTX] != 0)[2].astype(np.int16)
+    #     spikes_arr_y = np.where(spikes_arr[:, :, TOTX:-1] != 0)[2].astype(np.int16)
+    #     # spike_arr_pol = spike_arr_x[np.where(spike_arr_x != 0)].astype(np.int8)
+    #     tot_events = batch_size * seq_len
+    #     # spikes_arr_pol = spikes_arr[:, :, :-1].reshape((tot_events, 606))[range(tot_events), spikes_arr_x]
+    #     times = spikes_arr[:, :, -1].reshape((tot_events,))
+    #     img = np.zeros((TOTX, TOTY))
+    #     img[spikes_arr_x, spikes_arr_y] = times
+    #     return torch.Tensor(img)
 
     def forward(self, spikes):
         #h = torch.zeros(self.n_layers, self.batch_size, self.hidden_size)
         out, h = self.gru1(spikes) #TODO link hidden layers
         out, h = self.gru2(out)
         out, h = self.gru3(out)
+        time_surf = self.pass_on(out.view([self.seq_depth * self.batch_size, ]))
+        time_surf = time_surf.view([self.x, self.y, 3])
+        # out, h = self.conv1(spikes) #TODO link hidden layers
+        # out, h = self.conv2(out)
+        # out, h = self.conv3(out)
 
-        out = F.sigmoid(out).round() #, dim=2) #comment out for batch-wise spike output
-
-        time_surf = self.time_surf_module(spikes, out)
-
-        self.sent_packets = out.sum() / (self.batch_size*self.seq_depth)
+        # out = F.sigmoid(out).round() #, dim=2) #comment out for batch-wise spike output
+        #
+        # time_surf = self.time_surf_module(spikes, out)
+        #
+        # self.sent_packets = out.sum() / (self.batch_size*self.seq_depth)
 
         return time_surf
 
@@ -69,20 +77,17 @@ class AutoGRU(nn.Module):
         if time_surf is not None:
             gan_input = time_surf
 
-        print(gan_input.shape, "gan shape")
-
-        folder = "less_spikes"
+        folder = "/Users/massimilianoiacono/workspace/datasets/Tobi/Tobi1/less_spikes"
 
         try:
             os.mkdir(folder)
         except FileExistsError:
             pass
 
-
         i = 1
         #plt.imshow(gan_input.numpy())
         #plt.show()
-        img_a = Image.fromarray((255*gan_input.numpy()).astype(np.uint8).reshape(self.y, self.x, 3)) #TODO why is this differnt to matplotlib?
+        img_a = Image.fromarray((255*gan_input.detach().numpy()).astype(np.uint8).reshape(self.y, self.x, 3)) #TODO why is this differnt to matplotlib?
         img_b = Image.open(os.path.join(images_folder, "targets", "{}.png".format(target_img)))
         aligned_image = Image.new("RGB", (img_a.size[0] * 2, img_a.size[1]))
         aligned_image.paste(img_a, (0, 0))
@@ -93,7 +98,8 @@ class AutoGRU(nn.Module):
         g_loss, d_loss = self.GAN.generate_img(folder)
         g_loss, d_loss = torch.stack(g_loss), torch.stack(d_loss)
 
-        loss = torch.stack(self.sent_packets)
+        # loss = torch.stack(self.sent_packets)
+        loss = time_surf.norm()
         print("l", loss.mean(), "g", g_loss.mean(), "d", d_loss.mean())
         loss = loss + g_loss
         return loss
@@ -158,14 +164,16 @@ if __name__ == "__main__":
     # python3 event_net.py --dataroot ~/TelGanData/Tobi1 --name spikes2tobi --model pix2pix --which_direction AtoB --gpu_ids -1
     TOTX = 346
     TOTY = 260
-    file = "Tobi1_small.csv"
+    file = "/Users/massimilianoiacono/workspace/datasets/Tobi/Tobi1.csv"
 
+    print('Loading...')
     xypol, time_d, img_ids = prep_data(file)
+    print('Done!')
 
     seq_len = 64
     batch_size=64
 
-    images_folder = "/Users/Tilda/TelGanData/Tobi1/"
+    images_folder = "/Users/massimilianoiacono/workspace/datasets/Tobi/Tobi1/"
     gan = TrainedGAN(images_folder, "tobi_model1", batch_size=batch_size)
 
     gru = AutoGRU(TOTX, TOTY, seq_len, gan, batch_size=batch_size)
@@ -177,13 +185,18 @@ if __name__ == "__main__":
     for epoch in range(max_epochs):
         print("epoch {}".format(epoch))
 
-        print(img_ids)
-
         for i in range(len(time_d) - seq_len*batch_size):
             print("batch", i, end=" ")
             optimi.zero_grad()
+            print(1)
             data, targets = get_batch(i, xypol, time_d, img_ids, seq_len=seq_len, batch_size=batch_size) # DOES NOT SLIDE #TODO move outside loop
+            print(2)
             output = gru(data)
+            print(3)
             loss = gru.compute_loss(output, targets)
+            print(4)
             loss.sum().backward()
+            print(5)
             optimi.step()
+            print(6)
+
