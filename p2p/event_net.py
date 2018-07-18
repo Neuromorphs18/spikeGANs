@@ -49,7 +49,7 @@ class AutoGRU(nn.Module):
         times = spikes_arr[:, :, -1].reshape((tot_events,))
         img = np.zeros((TOTX, TOTY))
         img[spikes_arr_x, spikes_arr_y] = times
-        return torch.Tensor(img)
+        return torch.Tensor(img, device=device)
 
     def forward(self, spikes):
         #h = torch.zeros(self.n_layers, self.batch_size, self.hidden_size)
@@ -65,11 +65,9 @@ class AutoGRU(nn.Module):
 
         return time_surf
 
-    def compute_loss(self, time_surf, target_img):
+    def compute_loss(self, time_surf, target_img, b, e):
         if time_surf is not None:
             gan_input = time_surf
-
-        print(gan_input.shape, "gan shape")
 
         folder = "less_spikes"
 
@@ -77,24 +75,27 @@ class AutoGRU(nn.Module):
             os.mkdir(folder)
         except FileExistsError:
             pass
-
+        try:
+            os.mkdir("{}/train".format(folder))
+        except FileExistsError:
+            pass
 
         i = 1
-        #plt.imshow(gan_input.numpy())
-        #plt.show()
+
         img_a = Image.fromarray((255*gan_input.numpy()).astype(np.uint8).reshape(self.y, self.x, 3)) #TODO why is this differnt to matplotlib?
-        img_b = Image.open(os.path.join(images_folder, "targets", "{}.png".format(target_img)))
+        img_b = Image.open(os.path.join(images_folder, "targets", "{}.png".format(target_img))).convert('RGB')
         aligned_image = Image.new("RGB", (img_a.size[0] * 2, img_a.size[1]))
         aligned_image.paste(img_a, (0, 0))
         aligned_image.paste(img_b, (img_a.size[0], 0))
         aligned_image.save(os.path.join(folder, "train", "{}.png".format(i)))
 
-        #self.GAN.opt.dataroot = folder
+        self.GAN.opt.dataroot = folder
         g_loss, d_loss = self.GAN.generate_img(folder)
         g_loss, d_loss = torch.stack(g_loss), torch.stack(d_loss)
 
-        loss = torch.stack(self.sent_packets)
-        print("l", loss.mean(), "g", g_loss.mean(), "d", d_loss.mean())
+        loss = self.sent_packets
+        logs.write(",".join([str(x) for x in [loss, g_loss.sum(), d_loss.sum(), b, e]]) + "\n")
+        print([np.round(x, decimals=4) for x in [loss.item(), g_loss.item(), d_loss.item()]])
         loss = loss + g_loss
         return loss
 
@@ -150,25 +151,33 @@ def get_batch(index, data, time_d, targets, seq_len=64, batch_size=10):
     in_data = np.array(in_data)
     in_data.reshape((seq_len, batch_size, TOTX + TOTY + 1))
 
-    print(mode(targets).mode)
 
-    return torch.Tensor(in_data), int(mode(targets).mode)
+    return torch.Tensor(in_data, device=device), int(mode(targets).mode)
 
 if __name__ == "__main__":
     # python3 event_net.py --dataroot ~/TelGanData/Tobi1 --name spikes2tobi --model pix2pix --which_direction AtoB --gpu_ids -1
     TOTX = 346
     TOTY = 260
-    file = "Tobi1_small.csv"
+    file = "Tobi1.csv"
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    logs = open("logs.txt", "w")
+    logs.write("loss,gen_loss,d_loss,epoch,batch\n")
+
+    print('Loading...')
     xypol, time_d, img_ids = prep_data(file)
+    print('Done!')
+    seq_len = 128
+    batch_size = 64
 
-    seq_len = 64
-    batch_size=64
+    images_folder = "../Tobi1/"
+    gpu_args = -1 if device == "cpu" else 0
 
-    images_folder = "/Users/Tilda/TelGanData/Tobi1/"
-    gan = TrainedGAN(images_folder, "tobi_model1", batch_size=batch_size)
 
-    gru = AutoGRU(TOTX, TOTY, seq_len, gan, batch_size=batch_size)
+    gan = TrainedGAN(images_folder, "tobi_model1", batch_size=batch_size, gpu_args=gpu_args)
+
+    gru = AutoGRU(TOTX, TOTY, seq_len, gan, batch_size=batch_size).to(device)
 
     optimi = optim.Adam(gru.parameters())
 
@@ -177,13 +186,16 @@ if __name__ == "__main__":
     for epoch in range(max_epochs):
         print("epoch {}".format(epoch))
 
-        print(img_ids)
-
         for i in range(len(time_d) - seq_len*batch_size):
-            print("batch", i, end=" ")
-            optimi.zero_grad()
             data, targets = get_batch(i, xypol, time_d, img_ids, seq_len=seq_len, batch_size=batch_size) # DOES NOT SLIDE #TODO move outside loop
+            if torch.cuda.is_available():
+                data = data.cuda()
             output = gru(data)
-            loss = gru.compute_loss(output, targets)
+            loss = gru.compute_loss(output, targets, i, epoch)
             loss.sum().backward()
             optimi.step()
+
+
+        torch.save(gru.state_dict(), "gru.pt")
+
+    logs.close()
