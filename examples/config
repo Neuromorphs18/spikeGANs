@@ -1,13 +1,14 @@
 [paths]
 dataset_path = C:\Users\bodor\Downloads\Tobi
 model_path = C:\Users\bodor\Downloads\Tobi
-log_path = C:\Users\bodor\Downloads\Tobi
-runlabel = test
+log_path = C:\Users\bodor\Downloads\Tobi\test
+filename = test.aedat
 
 [algorithm]
 tau = 5e3
 fps_upsample_factor = 5
 reset_timesurface = False
+rectify_polarity = True
 
 [input]
 dataset_format = aedat

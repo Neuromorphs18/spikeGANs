@@ -36,5 +36,6 @@ def main(filepath=None):
 
 
 if __name__ == '__main__':
-    fp = 'C:\\Users\\bodor\\PycharmProjects\\spikeGANs\\examples\\config'
+    fp = None
+    # fp = 'C:\\Users\\bodor\\PycharmProjects\\spikeGANs\\examples\\config'
     main(fp)

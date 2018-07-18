@@ -2,12 +2,16 @@
 dataset_path =
 model_path =
 log_path =
-runlabel = test
+generator_image_path =
+target_image_path =
+combined_image_path =
+filename =
 
 [algorithm]
 tau = 1e6
 fps_upsample_factor = 1
 reset_timesurface = True
+rectify_polarity = False
 
 [input]
 dataset_format =

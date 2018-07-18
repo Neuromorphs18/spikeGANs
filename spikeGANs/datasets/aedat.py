@@ -2,27 +2,21 @@ import os
 from PyAedatTools.ImportAedat import ImportAedat
 
 
-def configure_aedat_import(filename, config):
+def load_aedat(config):
     aedat = {}
     aedat['importParams'] = {}
     aedat['importParams']['filePath'] = \
-        os.path.join(config.get('paths', 'dataset_path'), filename)
+        os.path.join(config.get('paths', 'dataset_path'),
+                     config.get('paths', 'filename'))
+    aedat['importParams']['startEvent'] = \
+        int(config.getfloat('input', 'start_event'))
+    aedat['importParams']['endEvent'] = \
+        int(config.getfloat('input', 'end_event'))
 
-    aedat['importParams']['startEvent'] = int(1e6)
-    aedat['importParams']['endEvent'] = int(10e6)
-    # aedat['importParams']['startTime'] = 48;
-    # aedat['importParams']['endTime'] = 49;
-
-    aedat['importParams']['dataTypes'] = {'polarity', 'special', 'frame'}
-
-    return aedat
-
-
-def load_aedat(aedat):
     aedat = ImportAedat(aedat)
-    print('Read {} seconds of data'.format(
+    print("Read {} events during {} seconds stream.".format(
+        len(aedat['data']['polarity']['timeStamp']),
         (aedat['info']['lastTimeStamp'] - aedat['info']['firstTimeStamp'])
         / 1e6))
-    print('Read {} events.'.format(
-        aedat['info']['lastTimeStamp'] - aedat['info']['firstTimeStamp']))
-    print('Done!')
+
+    return aedat
