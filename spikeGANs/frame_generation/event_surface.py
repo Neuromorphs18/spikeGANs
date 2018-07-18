@@ -36,8 +36,10 @@ def get_frames(aedat, config):
             p = aedat['data']['polarity']['polarity'][event_idx]
             t = aedat['data']['polarity']['timeStamp'][event_idx]
 
+            pp = 1 if p or config.getboolean('algorithm', 'rectify_polarity') \
+                else -1
             last_timestamp_array[x, y] = t
-            last_polarity_array[x, y] = 1 if p else -1
+            last_polarity_array[x, y] = pp
 
         last_timestamp = np.max(last_timestamp_array)
 

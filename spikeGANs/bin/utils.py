@@ -36,12 +36,10 @@ def run_full(config):
 
     """
 
-    from spikeGANs.datasets.aedat import configure_aedat_import, load_aedat
+    from spikeGANs.datasets.aedat import load_aedat
     from spikeGANs.frame_generation.event_surface import get_frames
 
-    aedat = configure_aedat_import('Tobi2.aedat', config)
-
-    load_aedat(aedat)
+    aedat = load_aedat(config)
 
     get_frames(aedat, config)
 
@@ -66,23 +64,36 @@ def load_config(filepath):
     return config
 
 
-def configure_paths(config):
+def configure_paths(config, config_filepath):
     """Configure the output folders."""
 
     log_path = config.get('paths', 'log_path')
-    generator_image_folder = os.path.join(log_path, 'generator')
-    target_image_folder = os.path.join(log_path, 'targets')
-    combined_image_folder = os.path.join(log_path, 'combined')
-    if not os.path.exists(generator_image_folder):
-        os.makedirs(generator_image_folder)
-    if not os.path.exists(target_image_folder):
-        os.makedirs(target_image_folder)
-    if not os.path.exists(combined_image_folder):
-        os.makedirs(combined_image_folder)
+    generator_image_path = config.get('paths', 'generator_image_path')
+    target_image_path = config.get('paths', 'target_image_path')
+    combined_image_path = config.get('paths', 'combined_image_path')
 
-    config.set('paths', 'generator_image_path', generator_image_folder)
-    config.set('paths', 'target_image_path', target_image_folder)
-    config.set('paths', 'combined_image_path', combined_image_folder)
+    # Set default log path if user did not specify it.
+    if log_path == '':
+        log_path = os.path.join(os.path.dirname(config_filepath), 'log')
+        config.set('paths', 'log_path', log_path)
+    if generator_image_path == '':
+        generator_image_path = os.path.join(log_path, 'generator')
+        config.set('paths', 'generator_image_path', generator_image_path)
+    if target_image_path == '':
+        target_image_path = os.path.join(log_path, 'targets')
+        config.set('paths', 'target_image_path', target_image_path)
+    if combined_image_path == '':
+        combined_image_path = os.path.join(log_path, 'combined')
+        config.set('paths', 'combined_image_path', combined_image_path)
+
+    if not os.path.exists(log_path):
+        os.makedirs(log_path)
+    if not os.path.exists(generator_image_path):
+        os.makedirs(generator_image_path)
+    if not os.path.exists(target_image_path):
+        os.makedirs(target_image_path)
+    if not os.path.exists(combined_image_path):
+        os.makedirs(combined_image_path)
 
     return config
 
@@ -102,15 +113,7 @@ def update_setup(config_filepath):
     # Overwrite with user settings.
     config.read(config_filepath)
 
-    config = configure_paths(config)
-
-    # Set default log path if user did not specify it.
-    log_path = config.get('paths', 'log_path')
-    if log_path == '':
-        log_path = os.path.join(os.path.dirname(config_filepath), 'log')
-        config.set('paths', 'log_path', log_path)
-    if not os.path.isdir(log_path):
-        os.makedirs(log_path)
+    config = configure_paths(config, config_filepath)
 
     plot_var = get_plot_keys(config)
     plot_vars = config_string_to_set_of_strings(config.get('restrictions',
@@ -149,7 +152,8 @@ def update_setup(config_filepath):
         matplotlib.rcParams.update(eval(config.get('output',
                                                    'plotproperties')))
 
-    with open(os.path.join(log_path, '.config'), str('w')) as f:
+    with open(os.path.join(config.get('paths', 'log_path'), '.config'),
+              str('w')) as f:
         config.write(f)
 
     return config
