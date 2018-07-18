@@ -22,7 +22,7 @@ class BaseOptions():
         parser.add_argument('--which_model_netD', type=str, default='basic', help='selects model to use for netD')
         parser.add_argument('--which_model_netG', type=str, default='resnet_9blocks', help='selects model to use for netG')
         parser.add_argument('--n_layers_D', type=int, default=3, help='only used if which_model_netD==n_layers')
-        parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
+        #parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
         #parser.add_argument('--name', type=str, default='experiment_name', help='name of the experiment. It decides where to store samples and models')
         #parser.add_argument('--dataset_mode', type=str, default='unaligned', help='chooses how datasets are loaded. [unaligned | aligned | single]')
         #parser.add_argument('--model', type=str, default='cycle_gan',
@@ -114,9 +114,8 @@ class BaseOptions():
             if id >= 0:
                 opt.gpu_ids.append(id)
         #TODO fix this gpu thing
-        opt.gpu_ids = []
-        #if len(opt.gpu_ids) > 0:
-        #    torch.cuda.set_device(opt.gpu_ids[0])
+        if len(opt.gpu_ids) > 0:
+            torch.cuda.set_device(opt.gpu_ids[0])
 
         self.opt = opt
         return self.opt

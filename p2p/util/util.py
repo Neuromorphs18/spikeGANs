@@ -71,16 +71,14 @@ def spikes_to_rgb(img):
     pass
 
 def tensor_to_rgb(img):
-    tmp = img[0, ...] * 0.299 + img[1, ...] * 0.587 + img[2, ...] * 0.114
-    img = tmp.unsqueeze(0)
     return img
 
 def time_surface_rgb(data, x, y):
-    """img = np.zeros((3, x, y))
+    img = np.zeros((3, x, y))
     data = data.numpy() if type(data) != np.ndarray else data
     pol, timestamp = data[:,2], data[:,3]
     time_past = 0 - timestamp
-    print(np.exp(-0.1*time_past))
+    print(np.exp(-time_past))
     pol *= np.exp(-time_past)
     img[0,1,2] = [pol < 0, pol == 0, pol > 0]
     x, y = data[:,0], data[:,1]
@@ -88,4 +86,4 @@ def time_surface_rgb(data, x, y):
     img[:,xy] = pol
     tmp = img[0, ...] * 0.299 + img[1, ...] * 0.587 + img[2, ...] * 0.114
     img = tmp.unsqueeze(0)
-    return img"""
+    return img

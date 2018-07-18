@@ -12,8 +12,8 @@ from util.util import time_surface_rgb, rgb_to_tensor
 
 
 class TrainedGAN():
-    def __init__(self, dataroot, weight_file, batch_size):
-        opt = TrainOptions(dataroot, weight_file, batch_size)
+    def __init__(self, dataroot, weight_file, batch_size, gpu_args=-1):
+        opt = TrainOptions(dataroot, weight_file, batch_size, gpu_args=gpu_args)
         opt = opt.parse()
         opt.nThreads = 1   # test code only supports nThreads = 1
         opt.batchSize = 1  # test code only supports batchSize = 1
@@ -58,16 +58,14 @@ class TrainedGAN():
             d = self.model.get_D_loss()
             g = self.model.get_G_loss()
 
-            print(d, g)
-
             d_loss.append(d)
             g_loss.append(g)
 
             #TODO get loss and return it
             visuals = self.model.get_current_visuals()
             img_path = self.model.get_image_paths()
-            if i % 5 == 0:
-                print('processing (%04d)-th image... %s' % (i, img_path))
+            #if i % 5 == 0:
+            #    print('processing (%04d)-th image... %s' % (i, img_path))
             save_images(self.webpage, visuals, img_path, aspect_ratio=self.opt.aspect_ratio, width=self.opt.display_winsize)
 
         self.webpage.save()
