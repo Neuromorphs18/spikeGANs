@@ -261,15 +261,16 @@ def ImportAedatDataVersion3(aedat):
                                 currentLength = len(specialValid)
                         allEvents = np.fromfile(fileHandle, specialDataFormat, eventNumber)
                         allInfo = np.array(allEvents['info'])
-                        specialValid[specialNumEvents : specialNumEvents + eventNumber] \
-                            = bool(allInfo and 0x1) # Pick off the first bit
-                        specialAddress[specialNumEvents : specialNumEvents + eventNumber] \
-                            = (allInfo and 0xFE) >> 1 # Next 7 bits are the special event type
+                        effective_eventNumber = min(eventNumber, len(allEvents))
+                        specialValid[specialNumEvents : specialNumEvents + effective_eventNumber] \
+                            = np.array(allInfo & 0x1, bool) # Pick off the first bit
+                        specialAddress[specialNumEvents : specialNumEvents + effective_eventNumber] \
+                            = (allInfo & 0xFE) >> 1 # Next 7 bits are the special event type
                         # special optional data would go here - next 24 bits - no need at the present    
-                        specialTimeStamp[specialNumEvents : specialNumEvents + eventNumber] \
+                        specialTimeStamp[specialNumEvents : specialNumEvents + effective_eventNumber] \
                             = packetTimeStampOffset + np.uint64(np.array(allEvents['timeStamp']))
-                        mainTimeStamp = specialTimeStamp(specialNumEvents)
-                        specialNumEvents = specialNumEvents + eventNumber
+                        mainTimeStamp = specialTimeStamp[specialNumEvents]
+                        specialNumEvents = specialNumEvents + effective_eventNumber
 
                 # Polarity events                
                 elif eventType == 1:  
@@ -281,30 +282,30 @@ def ImportAedatDataVersion3(aedat):
                             polarityTimeStamp = np.zeros(eventNumber, 'uint64')
                             polarityX         = np.zeros(eventNumber, 'uint16')
                             polarityY         = np.zeros(eventNumber, 'uint16')
-                            polarityPolarity  = np.false(eventNumber);
+                            polarityPolarity  = np.zeros(eventNumber, bool);
                         else:
                             while eventNumber > currentLength - polarityNumEvents:
                                 polarityValid     = np.append(polarityValid,     np.zeros(currentLength, 'bool'  ))
                                 polarityTimeStamp = np.append(polarityTimeStamp, np.zeros(currentLength, 'uint64'))
                                 polarityX         = np.append(polarityX,         np.zeros(currentLength, 'uint16'))
                                 polarityY         = np.append(polarityY,         np.zeros(currentLength, 'uint16'))
-                                polarityPolarity  = np.append(polarityPolarity,  np.false(currentLength          ))
+                                polarityPolarity  = np.append(polarityPolarity,  np.zeros(currentLength, 'bool'  ))
                                 currentLength = len(polarityValid)
                         allEvents = np.fromfile(fileHandle, polarityDataFormat, eventNumber)
-                        allAddresses = np.array(allEvents['addr'])
+                        allAddresses = np.array(allEvents['address'])
                         # Pick off the first bit as the validity mark
                         polarityValid[polarityNumEvents : polarityNumEvents + eventNumber] \
-                            = bool(allAddresses & 0x1) 
+                            = np.array(allAddresses & 0x1, bool)
                         # Pick off the second bit as the polarity
                         polarityPolarity[polarityNumEvents : polarityNumEvents + eventNumber] \
-                            = bool(allAddresses & 0x2)
+                            = np.array(allAddresses & 0x2, bool)
                         polarityY[polarityNumEvents : polarityNumEvents + eventNumber] \
                             = np.uint16((allAddresses & 0x1FFFC) >> 2)
                         polarityX[polarityNumEvents : polarityNumEvents + eventNumber] \
                             = np.uint16((allAddresses & 0xFFFE0000) >> 17)
                         polarityTimeStamp[polarityNumEvents : polarityNumEvents + eventNumber] \
                             = packetTimeStampOffset + np.uint64(np.array(allEvents['timeStamp'])) 
-                        mainTimeStamp = polarityTimeStamp(polarityNumEvents)
+                        mainTimeStamp = polarityTimeStamp[polarityNumEvents]
                         polarityNumEvents = polarityNumEvents + eventNumber
                 # Frames
                 elif(eventType == 2): 
