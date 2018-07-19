@@ -2,12 +2,8 @@ from .base_options import BaseOptions
 
 
 class TrainOptions(BaseOptions):
-    def __init__(self, dataroot, weight_file, batch_size, gpu_args=-1):
+    def __init__(self):
         super(TrainOptions, self).__init__()
-        self.weight_file = weight_file
-        self.dataroot = dataroot
-        self.batch_size = batch_size
-        self.gpu_args=gpu_args
 
     def initialize(self, parser):
         parser = BaseOptions.initialize(self, parser)
@@ -32,14 +28,14 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--lr_decay_iters', type=int, default=50, help='multiply by a gamma every lr_decay_iters iterations')
 
         # MR edit
-        parser.add_argument('--results_dir', type=str, default='./results/', help='saves results here.')
-        parser.add_argument('--dataroot', type=str, default=self.dataroot, help='loc of weight files')
-        parser.add_argument('--name', type=str, default=self.weight_file, help='name of trained model file folder')
-        parser.add_argument('--model', type=str, default="pix2pix", help='model pix2pix, cyclegan')
-        parser.add_argument('--dataset_mode', type=str, default="aligned", help='aligned, single etc.')
-        parser.add_argument('--aspect_ratio', type=float, default=1.0, help='aspect ratio of result images')
-        parser.add_argument('--batchSize', type=int, default=self.batch_size, help='input batch size')
-        parser.add_argument('--gpu_ids', type=str, default=str(self.gpu_args), help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
+        # parser.add_argument('--results_dir', type=str, default='./results/', help='saves results here.')
+        # parser.add_argument('--dataroot', type=str, default=self.dataroot, help='loc of weight files')
+        # parser.add_argument('--name', type=str, default=self.weight_file, help='name of trained model file folder')
+        # parser.add_argument('--model', type=str, default="pix2pix", help='model pix2pix, cyclegan')
+        # parser.add_argument('--dataset_mode', type=str, default="aligned", help='aligned, single etc.')
+        # parser.add_argument('--aspect_ratio', type=float, default=1.0, help='aspect ratio of result images')
+        # parser.add_argument('--batchSize', type=int, default=self.batch_size, help='input batch size')
+        # parser.add_argument('--gpu_ids', type=str, default=str(self.gpu_args), help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
 
         parser.set_defaults(model='pix2pix')
 

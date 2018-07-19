@@ -3,6 +3,9 @@ import torch.nn as nn
 from torch.nn import init
 import functools
 from torch.optim import lr_scheduler
+import numpy as np
+from PIL import Image
+import os
 
 ###############################################################################
 # Helper Functions
@@ -81,6 +84,8 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
         netG = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
     elif which_model_netG == 'unet_256':
         netG = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
+    elif which_model_netG == 'att_unet_256':
+        netG = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, att_layer=True)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % which_model_netG)
     return init_net(netG, init_type, init_gain, gpu_ids)
@@ -235,10 +240,15 @@ class ResnetBlock(nn.Module):
 # at the bottleneck
 class UnetGenerator(nn.Module):
     def __init__(self, input_nc, output_nc, num_downs, ngf=64,
-                 norm_layer=nn.BatchNorm2d, use_dropout=False):
+                 norm_layer=nn.BatchNorm2d, use_dropout=False, att_layer=False):
         super(UnetGenerator, self).__init__()
 
-        # construct unet structure
+        self.att_layer = att_layer
+        if self.att_layer:
+            self.conv1 = nn.Conv2d(3, 6, (3, 3), stride=1)
+            self.conv2 = nn.Conv2d(6, 2, (2, 2))
+            self.conv3 = nn.Conv2d(2, 3, (4, 4), padding=3)
+            # construct unet structure
         unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer, innermost=True)
         for i in range(num_downs - 5):
             unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer, use_dropout=use_dropout)
@@ -250,7 +260,13 @@ class UnetGenerator(nn.Module):
         self.model = unet_block
 
     def forward(self, input):
-        return self.model(input)
+        if self.att_layer:
+            out = self.conv1(input)
+            out = self.conv2(out)
+            gan_input = self.conv3(out)
+            return self.model(gan_input)
+        else:
+            return self.model(input)
 
 
 # Defines the submodule with skip connection.
