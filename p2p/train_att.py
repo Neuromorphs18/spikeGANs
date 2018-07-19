@@ -112,7 +112,7 @@ if __name__ == '__main__':
         iter_data_time = time.time()
         epoch_iter = 0
         for i in range(len(data_loader)):
-            print('Proccessing batch {} of epoch {}: ',  i, epoch)
+            print('Proccessing batch {} of epoch {}: '.format(i, epoch))
             spikes, targets = data_loader.get_batch(batch_size=opt.batchSize, seq_len=1024)
             iter_start_time = time.time()
             if total_steps % opt.print_freq == 0:

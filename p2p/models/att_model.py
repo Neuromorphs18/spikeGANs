@@ -26,7 +26,7 @@ class Attmodel(BaseModel):
         BaseModel.initialize(self, opt)
         self.isTrain = opt.isTrain
         # specify the training losses you want to print out. The program will call base_model.get_current_losses
-        self.loss_names = ['ATT', 'G_GAN', 'G_L1', 'D_real', 'D_fake']
+        self.loss_names = ['G_GAN', 'G_L1', 'D_real', 'D_fake']
         # specify the images you want to save/display. The program will call base_model.get_current_visuals
         self.visual_names = ['real_A', 'fake_B', 'real_B']
         # specify the models you want to save to the disk. The program will call base_model.save_networks and base_model.load_networks
@@ -62,8 +62,11 @@ class Attmodel(BaseModel):
             self.optimizers.append(self.optimizer_D)
 
     def set_input(self, spikes, target):
-        self.real_A = torch.Tensor(spikes, device=self.device)
-        self.real_B = torch.Tensor(target, device=self.device)
+        self.real_A = torch.Tensor(spikes, device=self.device).cuda()
+        self.real_B = torch.Tensor(target, device=self.device).cuda()
+        if torch.cuda.is_available():
+            self.real_A = self.real_A.cuda()
+            self.real_b = self.real_B.cuda()
 
     def forward(self):
         self.fake_B = self.netG(self.real_A)
