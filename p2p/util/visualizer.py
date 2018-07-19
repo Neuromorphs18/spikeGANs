@@ -69,7 +69,7 @@ class Visualizer():
             ncols = self.ncols
             if ncols > 0:
                 ncols = min(ncols, len(visuals))
-                h, w = next(iter(visuals.values())).shape[:2]
+                h, w = next(iter(visuals.values())).shape[2:]
                 table_css = """<style>
                         table {border-collapse: separate; border-spacing:4px; white-space:nowrap; text-align:center}
                         table td {width: %dpx; height: %dpx; padding: 4px; outline: 4px solid black}

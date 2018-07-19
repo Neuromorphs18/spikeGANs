@@ -11,10 +11,11 @@ import os
 
 class Batch_loader:
     def __init__(self, filename):
-        self.index = 0
         print('Loading...')
         self.xypol, self.img_ids = self.prep_data(filename)
         print('Done!')
+        self.unique_ids = np.unique(self.img_ids)
+        self.position = self.unique_ids[0]
 
     def prep_data(self, filename):
         data = np.loadtxt(filename, skiprows=1, delimiter=",")
@@ -34,9 +35,9 @@ class Batch_loader:
         time_d = np.concatenate([np.zeros(1), time_d])
         xypol[:, 3] = time_d
 
-        return xypol, data[:, 2]
+        return xypol, data[:, 2].astype(np.int)
 
-    def ConvertTDeventsToAccumulatedFrameConvert(self,td_events, width=346, height=260, tau=1e6):
+    def ConvertTDeventsToAccumulatedFrameConvert(self, td_events, width=346, height=260, tau=1e6):
         """ Converts the specified TD data to a frame by accumulating events """
         state = {}
         state['last_spike_time'] = np.zeros([width, height])
@@ -57,41 +58,37 @@ class Batch_loader:
 
         return state, surface_image.transpose()
 
-    def get_batch(self, seq_len=64, batch_size=10, x=346, y=260):
-        total_size = seq_len * batch_size
+    def get_batch(self, batch_size=10):
         cmap = plt.cm.jet
-
-        data = self.xypol[self.index:self.index + total_size]
         tgts = []
         in_data = []
-
-        for i in range(batch_size):
-            step = i * seq_len
-            state, img = self.ConvertTDeventsToAccumulatedFrameConvert(data[step:step + seq_len])
+        for i in self.unique_ids[self.position:self.position + batch_size]:
+            data = self.xypol[np.where(self.img_ids == i)]
+            state, img = self.ConvertTDeventsToAccumulatedFrameConvert(data)
             img = np.fliplr(np.flipud(img))
-            img = np.array(Image.fromarray((255 * img).astype(np.uint8)).resize((256, 256))) / 255
+            img = np.array(Image.fromarray((255 * img)).resize((256, 256))) / 255
 
             normed_data = (img - np.min(img)) / (np.max(img) - np.min(img))
-            mapped_data = cmap(normed_data)
 
+            mapped_data = cmap(normed_data)
             mapped_data = mapped_data[:, :, :3]
             mapped_data = np.moveaxis(mapped_data, -1, 0)
-            # plt.imshow(mapped_data)
-            # plt.show()
+
             in_data.append(mapped_data)
-            target = int(mode(self.img_ids[step:step + seq_len]).mode)
-            target_img = Image.open(os.path.join(opt.dataroot, "targets", "{}.png".format(target))).resize((256,256))
+            target_img = Image.open(os.path.join(opt.dataroot, "targets", "{}.png".format(i))).resize((256,256))
             target_img = np.moveaxis((np.array(target_img) /255)[:, :, :3], -1, 0)
             tgts.append(target_img)
 
-        # in_data = np.array(in_data).reshape(batch_size, 3, x, y)
+        self.position += batch_size
+        if self.position >= len(self):
+            self.position = 0
+
         in_data = np.array(in_data)
-        self.index += total_size
 
         return in_data, tgts
 
     def __len__(self):
-        return len(self.img_ids)
+        return len(self.unique_ids)
 
 
 if __name__ == '__main__':
@@ -111,9 +108,9 @@ if __name__ == '__main__':
         epoch_start_time = time.time()
         iter_data_time = time.time()
         epoch_iter = 0
-        for i in range(len(data_loader)):
+        for i in range(len(data_loader)//opt.batchSize + 1):
             print('Proccessing batch {} of epoch {}: '.format(i, epoch))
-            spikes, targets = data_loader.get_batch(batch_size=opt.batchSize, seq_len=1024)
+            spikes, targets = data_loader.get_batch(batch_size=opt.batchSize)
             iter_start_time = time.time()
             if total_steps % opt.print_freq == 0:
                 t_data = iter_start_time - iter_data_time
@@ -122,6 +119,7 @@ if __name__ == '__main__':
             epoch_iter += opt.batchSize
             model.set_input(spikes, targets)
             model.optimize_parameters()
+            # model.no_optimisation_run_through()
 
             if total_steps % opt.display_freq == 0:
                 save_result = total_steps % opt.update_html_freq == 0
@@ -147,5 +145,5 @@ if __name__ == '__main__':
             model.save_networks(epoch)
 
         print('End of epoch %d / %d \t Time Taken: %d sec' %
-              (epoch, opt.nitrain.pyter + opt.niter_decay, time.time() - epoch_start_time))
+              (epoch, opt.niter, time.time() - epoch_start_time))
         model.update_learning_rate()

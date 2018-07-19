@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn import init
+import torch.nn.functional as F
 import functools
 from torch.optim import lr_scheduler
 import numpy as np
@@ -234,6 +235,22 @@ class ResnetBlock(nn.Module):
         return out
 
 
+class AutoCNN(nn.Module):
+    def __init__(self):
+        super(AutoCNN, self).__init__()
+        self.conv1 = nn.Conv2d(3, 6, (3, 3))
+        self.conv2 = nn.Conv2d(6, 2, (2, 2))
+        self.conv3 = nn.ConvTranspose2d(2, 3, (4, 4))
+
+    def forward(self, spikes):
+        out = self.conv1(spikes)
+        out = self.conv2(out)
+        out = F.max_pool2d(self.conv3(out), 1)
+        return out
+
+    def compute_loss(self, outputs, inputs):
+        return F.mse_loss(inputs, outputs)
+
 # Defines the Unet generator.
 # |num_downs|: number of downsamplings in UNet. For example,
 # if |num_downs| == 7, image of size 128x128 will become of size 1x1
@@ -245,9 +262,8 @@ class UnetGenerator(nn.Module):
 
         self.att_layer = att_layer
         if self.att_layer:
-            self.conv1 = nn.Conv2d(3, 6, (3, 3), stride=1)
-            self.conv2 = nn.Conv2d(6, 2, (2, 2))
-            self.conv3 = nn.Conv2d(2, 3, (4, 4), padding=3)
+            self.att_net = AutoCNN()
+            self.att_net.load_state_dict(torch.load("./checkpoints/0.009_autoenc_model.pt"))
             # construct unet structure
         unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer, innermost=True)
         for i in range(num_downs - 5):
@@ -261,10 +277,8 @@ class UnetGenerator(nn.Module):
 
     def forward(self, input):
         if self.att_layer:
-            out = self.conv1(input)
-            out = self.conv2(out)
-            gan_input = self.conv3(out)
-            return self.model(gan_input)
+            gan_input = self.att_net(input)
+            return self.model(gan_input), gan_input
         else:
             return self.model(input)
 
