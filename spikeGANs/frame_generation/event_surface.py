@@ -22,6 +22,7 @@ def get_frames(aedat, config):
     last_polarity_array = np.zeros([width, height])
 
     frame_idx = 0
+    sub_frame_idx = 0
     first_timestamp_current_frame = \
         aedat['data']['frame']['timeStampStart'][frame_idx]
     last_timestamp_current_frame = \
@@ -57,8 +58,6 @@ def get_frames(aedat, config):
 
         time_surface = np.fliplr(np.flipud(time_surface.transpose()))
 
-        sub_frame_idx = sub_frame_counter % fps_upsample_factor
-
         if sub_frame_counter > 0 and sub_frame_idx == 0:
             frame_idx += 1
             first_timestamp_current_frame = \
@@ -80,3 +79,9 @@ def get_frames(aedat, config):
             target_file = os.path.join(target_image_path,
                                        "{}.png".format(frame_idx))
             plt.imsave(target_file, aps_frame, cmap='gray')
+
+        if frame_idx + 1 < num_frames and last_timestamp > \
+                aedat['data']['frame']['timeStampStart'][frame_idx + 1]:
+            sub_frame_idx = 0
+        else:
+            sub_frame_idx += 1

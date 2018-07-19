@@ -1,8 +1,8 @@
 [paths]
-dataset_path = C:\Users\bodor\Downloads\Tobi
-model_path = C:\Users\bodor\Downloads\Tobi
-log_path = C:\Users\bodor\Downloads\Tobi\test
-filename = test.aedat
+dataset_path = C:\Users\bodor\Desktop\Data\filtered
+model_path = C:\Users\bodor\Desktop\Data\filtered
+log_path = C:\Users\bodor\Desktop\Data\filtered\third_runner
+filename = third_runner.aedat
 
 [algorithm]
 tau = 5e3
@@ -12,10 +12,10 @@ rectify_polarity = True
 
 [input]
 dataset_format = aedat
-width = 346
-height = 260
-start_event = 1e6
-end_event = 10e6
+width = 240
+height = 180
+start_event =
+end_event =
 
 [output]
-save_aps_frames = False
+save_aps_frames = True
