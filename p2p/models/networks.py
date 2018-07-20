@@ -241,15 +241,24 @@ class AutoCNN(nn.Module):
         self.conv1 = nn.Conv2d(3, 6, (3, 3))
         self.conv2 = nn.Conv2d(6, 2, (2, 2))
         self.conv3 = nn.ConvTranspose2d(2, 3, (4, 4))
+        self.criterion = torch.nn.L1Loss()
+        self.optimizer = torch.optim.Adam(self.parameters())
 
     def forward(self, spikes):
         out = self.conv1(spikes)
         out = self.conv2(out)
         out = F.max_pool2d(self.conv3(out), 1)
+        self.out = F.normalize(out)
         return out
 
-    def compute_loss(self, outputs, inputs):
-        return F.mse_loss(inputs, outputs)
+    def optimize_parameters(self, G_loss):
+        self.optimizer.zero_grad()
+        loss = 60*self.criterion(self.out, torch.Tensor(np.zeros(self.out.shape)))
+        print(loss, G_loss)
+        loss += G_loss
+        loss.backward()
+        self.optimizer.step()
+        return loss
 
 # Defines the Unet generator.
 # |num_downs|: number of downsamplings in UNet. For example,
